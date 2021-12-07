@@ -53,6 +53,26 @@ public class Center {
     @Expose
     private List<Session> sessions = null;
 
+    public Center() {
+    }
+
+    /** Copy constructor that keeps the center's details but swaps its sessions. */
+    public Center(Center other, List<Session> sessions) {
+        this.centerId = other.centerId;
+        this.name = other.name;
+        this.address = other.address;
+        this.stateName = other.stateName;
+        this.districtName = other.districtName;
+        this.blockName = other.blockName;
+        this.pincode = other.pincode;
+        this.lat = other.lat;
+        this._long = other._long;
+        this.from = other.from;
+        this.to = other.to;
+        this.feeType = other.feeType;
+        this.sessions = sessions;
+    }
+
     public Integer getCenterId() {
         return centerId;
     }
