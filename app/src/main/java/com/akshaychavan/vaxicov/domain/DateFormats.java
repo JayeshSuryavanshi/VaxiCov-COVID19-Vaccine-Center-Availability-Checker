@@ -1,8 +1,11 @@
 package com.akshaychavan.vaxicov.domain;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
@@ -28,5 +31,29 @@ public final class DateFormats {
     @NonNull
     public static String today() {
         return cowinDate(new Date());
+    }
+
+    /** Parses a {@code dd-MM-yyyy} string; returns {@code null} for anything else. */
+    @Nullable
+    public static Date parseCowinDate(@Nullable String text) {
+        if (text == null) {
+            return null;
+        }
+        SimpleDateFormat format = new SimpleDateFormat(COWIN_PATTERN, Locale.US);
+        format.setLenient(false);
+        try {
+            return format.parse(text.trim());
+        } catch (ParseException e) {
+            return null;
+        }
+    }
+
+    /** @return a new date {@code days} after {@code date}. */
+    @NonNull
+    public static Date plusDays(@NonNull Date date, int days) {
+        Calendar calendar = Calendar.getInstance(Locale.US);
+        calendar.setTime(date);
+        calendar.add(Calendar.DAY_OF_MONTH, days);
+        return calendar.getTime();
     }
 }
