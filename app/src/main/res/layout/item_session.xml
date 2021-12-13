@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <TextView
+        android:id="@+id/tv_date"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.3"
+        android:fontFamily="@font/roboto_condensed_regular"
+        android:textColor="@color/colorLightGrey"
+        android:textSize="14sp"
+        tools:text="08-05-2021" />
+
+    <TextView
+        android:id="@+id/tv_vaccine"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.45"
+        android:fontFamily="@font/roboto_condensed_regular"
+        android:textColor="@color/colorLightGrey"
+        android:textSize="14sp"
+        tools:text="COVISHIELD · 18+" />
+
+    <TextView
+        android:id="@+id/tv_doses"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.25"
+        android:fontFamily="@font/roboto_condensed_bold"
+        android:gravity="end"
+        android:textColor="@color/colorGreen"
+        android:textSize="14sp"
+        tools:text="42" />
+
+</LinearLayout>

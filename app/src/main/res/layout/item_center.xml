@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:background="@drawable/custom_input"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tv_center_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="@font/roboto_condensed_bold"
+            android:textColor="@color/colorLightGrey"
+            android:textSize="16sp"
+            tools:text="Civil Hospital Nashik" />
+
+        <TextView
+            android:id="@+id/tv_fee_type"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="@font/roboto_condensed_bold"
+            android:textColor="@color/colorOrange"
+            android:textSize="14sp"
+            tools:text="Free" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tv_center_address"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/roboto_condensed_regular"
+        android:textColor="@color/editTextBorderLight"
+        android:textSize="13sp"
+        tools:text="Trimbak Road, Nashik, 422002" />
+
+    <LinearLayout
+        android:id="@+id/ll_sessions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical" />
+
+</LinearLayout>

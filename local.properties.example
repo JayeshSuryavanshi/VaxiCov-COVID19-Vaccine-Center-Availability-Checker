@@ -4,10 +4,3 @@
 
 # Public CoWIN API base URL (must end with a slash).
 vaxicov.cowinBaseUrl=https://cdn-api.co-vin.in/api/v2/
-
-# Backend used for e-mail notifications (must end with a slash).
-vaxicov.notifierBaseUrl=https://vaccine-notifier-covid-india.herokuapp.com/api/v1.0/
-
-# Google Apps Script web-app URL that records sign-ins and returns the user count.
-# Leave empty to disable the feature.
-vaxicov.userRegistryUrl=

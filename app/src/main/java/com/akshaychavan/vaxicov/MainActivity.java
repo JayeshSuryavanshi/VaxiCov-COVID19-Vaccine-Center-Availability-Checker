@@ -1,29 +1,16 @@
 package com.akshaychavan.vaxicov;
 
-import android.app.AlarmManager;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.Intent;
-import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.graphics.LinearGradient;
-import android.graphics.Paint;
-import android.graphics.Shader;
-import android.net.Uri;
-import android.os.Build;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.RadioGroup;
@@ -31,848 +18,450 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.ActionBarDrawerToggle;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.akshaychavan.vaxicov.pojo.CalendarByDistrictPojo;
-import com.akshaychavan.vaxicov.pojo.CalendarByPinPojo;
+import com.akshaychavan.vaxicov.adapters.CenterAdapter;
+import com.akshaychavan.vaxicov.data.SlotProviders;
+import com.akshaychavan.vaxicov.data.SlotRepository;
+import com.akshaychavan.vaxicov.domain.AgeGroup;
+import com.akshaychavan.vaxicov.domain.SearchQuery;
+import com.akshaychavan.vaxicov.notifier.AvailabilityNotifier;
+import com.akshaychavan.vaxicov.notifier.SlotNotifierScheduler;
 import com.akshaychavan.vaxicov.pojo.Center;
-import com.akshaychavan.vaxicov.pojo.CenterDistrict;
 import com.akshaychavan.vaxicov.pojo.District;
-import com.akshaychavan.vaxicov.pojo.FindCenterByPinPojo;
-import com.akshaychavan.vaxicov.pojo.GetDistrictsByStatesPojo;
-import com.akshaychavan.vaxicov.pojo.Session;
-import com.akshaychavan.vaxicov.pojo.SessionDistrict;
-import com.akshaychavan.vaxicov.pojo.SetNotificationsResponsePojo;
-import com.akshaychavan.vaxicov.pojo.UserLoginResponsePojo;
-import com.akshaychavan.vaxicov.pojo.UserRegistrationResponsePojo;
-import com.akshaychavan.vaxicov.utility.ApiClient;
-import com.akshaychavan.vaxicov.utility.ApiInterface;
-import com.akshaychavan.vaxicov.utility.GlobalCode;
-import com.bumptech.glide.Glide;
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.auth.api.signin.GoogleSignInClient;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
-import com.google.android.material.button.MaterialButton;
-import com.google.android.material.navigation.NavigationView;
+import com.akshaychavan.vaxicov.pojo.State;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Locale;
+import java.util.List;
 
-import Adapters.AvailabilityDetailsRowAdapter;
-import Adapters.AvailabilityDetailsRowDistrictAdapter;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
+/**
+ * The app's single screen: pick an area and age group, search for bookable
+ * sessions, and optionally keep a background watch that notifies when new
+ * slots open up.
+ */
+public class MainActivity extends AppCompatActivity {
 
-public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuItemClickListener {
+    private static final String TAG = "MainActivity";
+    private static final String STATE_AGE_GROUP = "age_group";
 
-    public static final String SHARED_PREFS = "sharedprefs";
-    public static final String LOGIN_STATE = "login";
-    public final String NOTIFICATION_CHANNEL_ID = "Channel1";
-    private final String TAG = "MainActivity";
-    public String userID = null, token = null;
-    GlobalCode globalCode = GlobalCode.getInstance();
-    GoogleSignInAccount accountDetails;
-    String findBy = "Pin";          // default -> pin, options-> pin OR district
-    NavigationView navigationView;
-    Toolbar toolbar;
+    private AppPreferences preferences;
+    private SlotRepository repository;
 
-    AlertDialog notificationsPopup;
-    EditText etAgeGroup, etPin;
-    AutoCompleteTextView etDistrict, etState;
-    RadioGroup rgFindBy;
-    LinearLayout detailsTable;
-    MaterialButton btnSearch, btnNotify;
-    ProgressBar progressBar, progressBarUserCount;
-    TextView tvNoSlots, toolbarTitle, tvMadeBy, tvUsername, tvMail, usersCount, navHeaderTitle;
-    ImageView profileIcon;
-    ArrayAdapter<String> statesAdapter, districtsAdapter;
-    ArrayList<District> districtArrayList;
-    ArrayList<String> districtsArray = new ArrayList<>();
-    int selectedDistrictID;
+    private RadioGroup findBy;
+    private EditText etPin;
+    private EditText etAgeGroup;
+    private AutoCompleteTextView etState;
+    private AutoCompleteTextView etDistrict;
+    private Button btnSearch;
+    private Button btnNotify;
+    private TextView tvStatus;
+    private TextView tvEmpty;
+    private ProgressBar progress;
+    private RecyclerView rvCenters;
+    private CenterAdapter adapter;
 
-    // Availability Details Adapter
-    RecyclerView availabilityDetailsRecylcer;
-    RecyclerView.LayoutManager availabilityDetailsLayoutManager;
-    RecyclerView.Adapter availabilityDetailsAdapter;
-    /////////////////////////////////
-
-    Date c = Calendar.getInstance().getTime();
-    SimpleDateFormat df = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault());
-    String today = df.format(c);
-    HashMap<String, Integer> states = new HashMap<String, Integer>();
-    private DrawerLayout drawerLayout;
+    private final List<State> states = new ArrayList<>();
+    private final List<District> districts = new ArrayList<>();
+    @Nullable private State selectedState;
+    @Nullable private District selectedDistrict;
+    @NonNull private AgeGroup ageGroup = AgeGroup.ALL;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        toolbar = findViewById(R.id.toolbar);
+        preferences = new AppPreferences(this);
+        Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayShowTitleEnabled(false);
-        // Setting navigation bar
-        drawerLayout = findViewById(R.id.drawer_layout);
-        navigationView = findViewById(R.id.nav_view);
-        ActionBarDrawerToggle actionBarDrawerToggle = new ActionBarDrawerToggle(this, drawerLayout,
-                toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
 
-        drawerLayout.addDrawerListener(actionBarDrawerToggle);
-        actionBarDrawerToggle.syncState();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, "My notification", NotificationManager.IMPORTANCE_DEFAULT);
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            manager.createNotificationChannel(channel);
-        }
-
-
-        bindVariables();
+        bindViews();
         bindEvents();
+        createRepository();
+        AvailabilityNotifier.ensureChannel(this);
 
-        accountDetails = globalCode.getAccountDetails();
-        // Setting user info in side panel
-        tvUsername.setText(accountDetails.getDisplayName());
-        tvMail.setText(accountDetails.getEmail());
-        usersCount.setText("Total Users: " + globalCode.getUsersCount());
-        Glide.with(this)
-                .load(accountDetails.getPhotoUrl())
-                .into(profileIcon);
-
-//        registerUser();
-//        loginUser();
-
-    }
-
-    public void bindVariables() {
-
-        tvMadeBy = findViewById(R.id.tv_madeby);
-        toolbarTitle = findViewById(R.id.toolbar_title);
-
-        View sideNav = navigationView.getHeaderView(0);
-        tvUsername = sideNav.findViewById(R.id.tv_username);
-        tvMail = sideNav.findViewById(R.id.tv_user_mail);
-        profileIcon = sideNav.findViewById(R.id.iv_profile_icon);
-        navHeaderTitle = sideNav.findViewById(R.id.navheader_title);
-        usersCount = navigationView.findViewById(R.id.tv_users_count);
-
-        globalCode.setTvUsersCount(usersCount);
-
-        // setting toolbar title color gradient
-        Paint paint = toolbarTitle.getPaint();
-        Shader textShader = new LinearGradient(0, 0, paint.measureText(toolbarTitle.getText().toString()), paint.getTextSize(),
-                new int[]{Color.parseColor("#FF6F00"), Color.WHITE, Color.parseColor("#1B5E20")},
-                null, Shader.TileMode.CLAMP);
-        toolbarTitle.getPaint().setShader(textShader);
-
-        // also for side nav title
-        Paint paint2 = navHeaderTitle.getPaint();
-        Shader textShader2 = new LinearGradient(0, 0, paint2.measureText(navHeaderTitle.getText().toString()), paint2.getTextSize(),
-                new int[]{Color.parseColor("#FF6F00"), Color.WHITE, Color.parseColor("#1B5E20")},
-                null, Shader.TileMode.CLAMP);
-        navHeaderTitle.getPaint().setShader(textShader2);
-        ///////////////////////////////////////
-
-        detailsTable = findViewById(R.id.ll_details_table);
-        btnSearch = findViewById(R.id.btn_search);
-        btnNotify = findViewById(R.id.btn_notify);
-
-        etAgeGroup = findViewById(R.id.et_agegroup);
-        etPin = findViewById(R.id.et_pin);
-        etDistrict = findViewById(R.id.et_district);
-        etState = findViewById(R.id.et_state);
-        rgFindBy = findViewById(R.id.rg_findby);
-
-        tvNoSlots = findViewById(R.id.tv_no_slots);
-        progressBar = findViewById(R.id.progressbar);
-        progressBarUserCount = findViewById(R.id.progressbar_user_count);
-        globalCode.setUserCountProgressBar(progressBarUserCount);
-
-        // Setting up adapters
-        availabilityDetailsRecylcer = findViewById(R.id.rv_availability_details);
-        availabilityDetailsRecylcer.setHasFixedSize(true);
-        availabilityDetailsLayoutManager = new LinearLayoutManager(this);
-
-
-        states.put("Andaman and Nicobar Islands", 1);
-        states.put("Andhra Pradesh", 2);
-        states.put("Arunachal Pradesh", 3);
-        states.put("Assam", 4);
-        states.put("Bihar", 5);
-        states.put("Chandigarh", 6);
-        states.put("Chhattisgarh", 7);
-        states.put("Dadra and Nagar Haveli", 8);
-        states.put("Daman and Diu", 37);
-        states.put("Delhi", 9);
-        states.put("Goa", 10);
-        states.put("Gujarat", 11);
-        states.put("Haryana", 12);
-        states.put("Himachal Pradesh", 13);
-        states.put("Jammu and Kashmir", 14);
-        states.put("Jharkhand", 15);
-        states.put("Karnataka", 16);
-        states.put("Kerala", 17);
-        states.put("Ladakh", 18);
-        states.put("Lakshadweep", 19);
-        states.put("Madhya Pradesh", 20);
-        states.put("Maharashtra", 21);
-        states.put("Manipur", 22);
-        states.put("Meghalaya", 23);
-        states.put("Mizoram", 24);
-        states.put("Nagaland", 25);
-        states.put("Odisha", 26);
-        states.put("Puducherry", 27);
-        states.put("Punjab", 28);
-        states.put("Rajasthan", 29);
-        states.put("Sikkim", 30);
-        states.put("Tamil Nadu", 31);
-        states.put("Telangana", 32);
-        states.put("Tripura", 33);
-        states.put("Uttar Pradesh", 34);
-        states.put("Uttarakhand", 35);
-        states.put("West Bengal", 36);
-
-        // setting dropdown for states
-        String[] statesArray = states.keySet().toArray(new String[0]);
-//        for(String s: statesArray) {
-//            Log.e(TAG, s);
-//        }
-        statesAdapter = new ArrayAdapter<String>(MainActivity.this, R.layout.dropdown_item, statesArray);
-        etState.setAdapter(statesAdapter);
-    }       // end bindVariables()
-
-    public void bindEvents() {
-
-        tvMadeBy.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Uri uri = Uri.parse("https://www.linkedin.com/in/akshaychavan7/"); // missing 'http://' will cause crashed
-                Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-                startActivity(intent);
-            }
-        });
-
-        etAgeGroup.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showPopup(v);
-            }
-        });
-
-        rgFindBy.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                switch (checkedId) {
-                    case R.id.findbypin:
-                        findBy = "pin";
-                        etPin.setVisibility(View.VISIBLE);
-                        etDistrict.setVisibility(View.GONE);
-                        etState.setVisibility(View.GONE);
-                        break;
-                    case R.id.findbydistrict:
-                        findBy = "district";
-                        etPin.setVisibility(View.GONE);
-                        etDistrict.setVisibility(View.VISIBLE);
-                        etState.setVisibility(View.VISIBLE);
-                        break;
+        if (savedInstanceState != null) {
+            setAgeGroup(AgeGroup.fromLabel(savedInstanceState.getString(STATE_AGE_GROUP)));
+        } else {
+            setAgeGroup(AgeGroup.ALL);
+            SearchQuery watched = preferences.getNotifierQuery();
+            if (watched != null) {
+                prefill(watched);
+                if (getIntent().getBooleanExtra(AvailabilityNotifier.EXTRA_FROM_NOTIFICATION, false)) {
+                    search();
                 }
             }
-        });
-
-        btnSearch.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (performValidations()) {
-                    switch (findBy.toLowerCase()) {
-                        case "pin":
-                            if (etPin.getText().length() == 6) {
-                                findCalendarByPin(Integer.parseInt(etPin.getText().toString()), today);
-                            } else {
-                                Toast.makeText(MainActivity.this, "Please make sure you input correct pin!", Toast.LENGTH_SHORT).show();
-                            }
-                            break;
-                        case "district":
-                            findCalendarByDistrict(selectedDistrictID, today);
-                            break;
-                    }
-                } else {
-                    Toast.makeText(MainActivity.this, "Please make sure you input all fields correctly!", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
-
-        btnNotify.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.e(TAG, "Lengths: " + etPin.getText().length() + " " + etState.getText().length() + " " + etDistrict.getText().length());
-                if (etPin.getText().length() > 0 && etState.getText().length() > 0 && etDistrict.getText().length() > 0) {
-                    openNotificationPopup();
-                } else {
-                    Toast.makeText(MainActivity.this, "Make sure you fill all the fields for both find by pin and find by district options to set notifications!", Toast.LENGTH_SHORT).show();
-                }
-
-            }
-        });
-
-        etState.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-//                Log.e(TAG, "etstate on item click listener");
-                getDistrictsByStates(getStateID(etState.getText().toString()));
-
-            }
-        });
-
-        etDistrict.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                selectedDistrictID = getDistrictID(etDistrict.getText().toString());
-            }
-        });
-
-
-        navigationView.setNavigationItemSelectedListener(new NavigationView.OnNavigationItemSelectedListener() {
-            @Override
-            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-
-                switch (item.getItemId()) {
-                    case R.id.nv_logout:
-                        logout();
-                        Intent intent = new Intent(MainActivity.this, LoginActivity.class);
-                        startActivity(intent);
-                        break;
-                }
-
-                return true;
-            }
-        });
-
-    }       // end bindEvents()
-
-
-//    public void sendNotification() {
-//
-//
-//        //Get an instance of NotificationManager//
-//
-//        NotificationCompat.Builder mBuilder =
-//                new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-//                        .setSmallIcon(R.mipmap.flag1)
-//                        .setContentTitle("My notification")
-//                        .setContentText("Hello World!")
-//                        .setAutoCancel(true);
-//
-//        NotificationManagerCompat managerCompat = NotificationManagerCompat.from(MainActivity.this);
-//        managerCompat.notify(1, mBuilder.build());
-//
-//
-//    }
-
-
-    public void setNotifications() {
-
-        Calendar calendar = Calendar.getInstance();
-//        calendar.set(Calendar.HOUR_OF_DAY, 23);
-//        calendar.set(Calendar.MINUTE, 7);
-//        calendar.set(Calendar.SECOND, 0);
-        Intent intent = new Intent(MainActivity.this, NotificationReceiver.class);
-
-
-        // find appointments
-        findCalendarByPin(Integer.parseInt(etPin.getText().toString()), today);
-        findCalendarByDistrict(selectedDistrictID, today);
-
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(MainActivity.this, 100, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-
-        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-        alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), 1000, pendingIntent);
-    }
-
-
-    public void setEmailNotifications() {
-
-//        {
-//            "pincode": "422011",
-//                "minAgeLimit": 0,
-//                "price": "Any",
-//                "vaccine": "Any",
-//                "center": 0
-//        }
-
-        JSONObject emailNotificationObj = new JSONObject();
-
-        try {
-            emailNotificationObj.put("pincode", etPin.getText());
-            emailNotificationObj.put("minAgeLimit", 0);
-            emailNotificationObj.put("price", "Any");
-            emailNotificationObj.put("vaccine", "Any");
-            emailNotificationObj.put("center", 0);
-        } catch (JSONException e) {
-            e.printStackTrace();
         }
-
-
-        ApiInterface apiInterface = ApiClient.getNotificationClient().create(ApiInterface.class);
-
-        Log.e(TAG, "Email Notifications Params>>" + emailNotificationObj.toString());
-
-        Call<SetNotificationsResponsePojo> call = apiInterface.setNotifications(userID, emailNotificationObj.toString(), token);
-
-
-        call.enqueue(new Callback<SetNotificationsResponsePojo>() {
-            @Override
-            public void onResponse(Call<SetNotificationsResponsePojo> call, Response<SetNotificationsResponsePojo> response) {
-//                    Log.e(TAG, "Response Code -> " + response.code());
-                if (response.isSuccessful()) {
-                    if (response.body().getActive().toString().length() != 0) {
-                        Toast.makeText(MainActivity.this, "Email notifications set successfully!\nYou will get notifications over app and mail when slots become available.", Toast.LENGTH_LONG).show();
-                    }
-
-                } else {
-                    Log.e(TAG, response.code() + " Error>>" + response.message() + "\nURL>>" + response.raw().request().url());
-//                    Toast.makeText(MainActivity.this, "Response Error >> " + response.message(), Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<SetNotificationsResponsePojo> call, Throwable t) {
-                // using no slots textview to display error message
-//                Toast.makeText(MainActivity.this, "Something went wrong!\n>>" + t.getMessage(), Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Something went wrong >>" + t.getMessage());
-            }
-        });
-    }
-
-    public void registerUser() {
-
-//        {
-//            "fullName": "xyx xxx",
-//                "username": "xyx",
-//                "email": "xyx@gmail.com",
-//                "password": "xyzxyz"
-//        }
-        GoogleSignInAccount accountDetails = globalCode.getAccountDetails();
-
-        JSONObject registerUserObj = new JSONObject();
-
-        try {
-            registerUserObj.put("fullName", accountDetails.getDisplayName());
-            registerUserObj.put("username", accountDetails.getEmail());
-            registerUserObj.put("email", accountDetails.getEmail());
-            registerUserObj.put("password", accountDetails.getEmail());
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
-
-        ApiInterface apiInterface = ApiClient.getNotificationClient().create(ApiInterface.class);
-
-        Log.e(TAG, "Register Params>>" + registerUserObj.toString());
-
-        Call<UserRegistrationResponsePojo> call = apiInterface.registerUser(registerUserObj.toString());
-
-
-        call.enqueue(new Callback<UserRegistrationResponsePojo>() {
-            @Override
-            public void onResponse(Call<UserRegistrationResponsePojo> call, Response<UserRegistrationResponsePojo> response) {
-//                    Log.e(TAG, "Response Code -> " + response.code());
-                if (response.isSuccessful()) {
-                    Log.e(TAG, "Register User>> " + response.body().getMessage());
-
-                } else {
-                    Log.e(TAG, response.code() + " Error>>" + response.message() + "\nURL>>" + response.raw().request().url());
-//                    Toast.makeText(MainActivity.this, "Response Error >> " + response.message(), Toast.LENGTH_SHORT).show();
-                }
-
-                loginUser();        // if response then login
-            }
-
-            @Override
-            public void onFailure(Call<UserRegistrationResponsePojo> call, Throwable t) {
-                // using no slots textview to display error message
-//                Toast.makeText(MainActivity.this, "Something went wrong!\n>>" + t.getMessage(), Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Something went wrong >>" + t.getMessage());
-
-                loginUser();        // if no response then also login
-            }
-        });
-    }
-
-
-    public void loginUser() {
-
-//        {
-//            "username": "abc",
-//                "password": "9822479700"
-//        }
-        GoogleSignInAccount accountDetails = globalCode.getAccountDetails();
-
-        JSONObject loginUserObj = new JSONObject();
-
-        try {
-            loginUserObj.put("username", accountDetails.getEmail());
-            loginUserObj.put("password", accountDetails.getEmail());
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
-
-        ApiInterface apiInterface = ApiClient.getNotificationClient().create(ApiInterface.class);
-
-        Log.e(TAG, "Login Params>>" + loginUserObj.toString());
-
-        Call<UserLoginResponsePojo> call = apiInterface.loginUser(loginUserObj.toString());
-
-
-        call.enqueue(new Callback<UserLoginResponsePojo>() {
-            @Override
-            public void onResponse(Call<UserLoginResponsePojo> call, Response<UserLoginResponsePojo> response) {
-//                    Log.e(TAG, "Response Code -> " + response.code());
-                if (response.isSuccessful()) {
-                    Log.e(TAG, "Login User>> " + response.body().getId());
-                    userID = response.body().getId();
-                    token = "Bearer " + response.body().getToken();
-
-                    setEmailNotifications();
-                } else {
-                    Log.e(TAG, response.code() + " Error>>" + response.body() + "\nURL>>" + response.raw().request().url());
-//                    Toast.makeText(MainActivity.this, "Response Error >> " + response.message(), Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<UserLoginResponsePojo> call, Throwable t) {
-                // using no slots textview to display error message
-//                Toast.makeText(MainActivity.this, "Something went wrong!\n>>" + t.getMessage(), Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Something went wrong >>" + t.getMessage());
-            }
-        });
-    }
-
-
-    public boolean performValidations() {
-        switch (findBy.toLowerCase()) {
-            case "pin":
-                if (etPin.getText().length() == 0) {
-                    return false;
-                }
-                break;
-            case "district":
-                if (etState.getText().length() == 0 || etDistrict.getText().length() == 0) {
-                    return false;
-                }
-                break;
-        }
-        return true;
-    }
-
-
-    public void showPopup(View v) {
-        PopupMenu agePopup = new PopupMenu(MainActivity.this, v);
-        agePopup.setOnMenuItemClickListener(this);
-        agePopup.inflate(R.menu.agegroup_menu);
-        agePopup.show();
+        loadStates();
+        renderNotifierStatus();
     }
 
     @Override
-    public boolean onMenuItemClick(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.agegroup1:
-                etAgeGroup.setText(item.getTitle());
-                return true;
-            case R.id.agegroup2:
-                etAgeGroup.setText(item.getTitle());
-                return true;
-            case R.id.agegroup3:
-                etAgeGroup.setText(item.getTitle());
-                return true;
-            default:
-                return false;
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent.getBooleanExtra(AvailabilityNotifier.EXTRA_FROM_NOTIFICATION, false)) {
+            SearchQuery watched = preferences.getNotifierQuery();
+            if (watched != null) {
+                prefill(watched);
+                search();
+            }
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(STATE_AGE_GROUP, ageGroup.label());
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (repository != null) {
+            repository.shutdown();
+        }
+        super.onDestroy();
+    }
+
+    // ---- Menu --------------------------------------------------------------
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        menu.findItem(R.id.action_sample_data).setChecked(preferences.isSampleDataEnabled());
+        menu.findItem(R.id.action_stop_alerts).setVisible(SlotNotifierScheduler.isActive(this));
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_sample_data) {
+            boolean enabled = !preferences.isSampleDataEnabled();
+            preferences.setSampleDataEnabled(enabled);
+            item.setChecked(enabled);
+            createRepository();
+            clearResults();
+            loadStates();
+            Toast.makeText(this, enabled ? R.string.toast_sample_data_on : R.string.toast_sample_data_off,
+                    Toast.LENGTH_SHORT).show();
+            return true;
+        }
+        if (id == R.id.action_stop_alerts) {
+            stopAlerts();
+            return true;
+        }
+        if (id == R.id.action_about) {
+            showAbout();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    // ---- Setup -------------------------------------------------------------
+
+    private void bindViews() {
+        findBy = findViewById(R.id.rg_findby);
+        etPin = findViewById(R.id.et_pin);
+        etAgeGroup = findViewById(R.id.et_agegroup);
+        etState = findViewById(R.id.et_state);
+        etDistrict = findViewById(R.id.et_district);
+        btnSearch = findViewById(R.id.btn_search);
+        btnNotify = findViewById(R.id.btn_notify);
+        tvStatus = findViewById(R.id.tv_notifier_status);
+        tvEmpty = findViewById(R.id.tv_empty);
+        progress = findViewById(R.id.progressbar);
+        rvCenters = findViewById(R.id.rv_centers);
+
+        adapter = new CenterAdapter();
+        rvCenters.setLayoutManager(new LinearLayoutManager(this));
+        rvCenters.setAdapter(adapter);
+    }
+
+    private void bindEvents() {
+        findBy.setOnCheckedChangeListener((group, checkedId) -> {
+            boolean byPin = checkedId == R.id.findbypin;
+            etPin.setVisibility(byPin ? View.VISIBLE : View.GONE);
+            etState.setVisibility(byPin ? View.GONE : View.VISIBLE);
+            etDistrict.setVisibility(byPin ? View.GONE : View.VISIBLE);
+        });
+
+        etAgeGroup.setOnClickListener(this::showAgeGroupMenu);
+
+        etState.setOnItemClickListener((parent, view, position, id) -> {
+            selectedState = findState(etState.getText().toString());
+            selectedDistrict = null;
+            etDistrict.setText("");
+            districts.clear();
+            if (selectedState != null && selectedState.getStateId() != null) {
+                loadDistricts(selectedState.getStateId());
+            }
+        });
+
+        etDistrict.setOnItemClickListener((parent, view, position, id) ->
+                selectedDistrict = findDistrict(etDistrict.getText().toString()));
+
+        btnSearch.setOnClickListener(v -> search());
+        btnNotify.setOnClickListener(v -> {
+            if (SlotNotifierScheduler.isActive(this)) {
+                stopAlerts();
+            } else {
+                confirmAlerts();
+            }
+        });
+    }
+
+    private void createRepository() {
+        if (repository != null) {
+            repository.shutdown();
+        }
+        repository = new SlotRepository(SlotProviders.current(preferences));
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setSubtitle(getString(R.string.data_source_format, repository.provider().name()));
         }
     }
 
+    // ---- Locations ---------------------------------------------------------
 
-    public void openNotificationPopup() {
-        LayoutInflater li = LayoutInflater.from(MainActivity.this);
-        View view = li.inflate(R.layout.set_notifications_popup_layout, null);
-
-        final AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(MainActivity.this, R.style.CustomDialog);
-        alertDialogBuilder.setView(view);
-//        alertDialogBuilder.create();
-//        alertDialogBuilder.show();
-
-        notificationsPopup = alertDialogBuilder.create();
-        notificationsPopup.show();
-
-
-        // binding popup variables and events
-
-        Button set = view.findViewById(R.id.set);
-        Button cancel = view.findViewById(R.id.cancel);
-
-        cancel.setOnClickListener(new View.OnClickListener() {
+    private void loadStates() {
+        repository.loadStates(new SlotRepository.Callback<List<State>>() {
             @Override
-            public void onClick(View v) {
-                notificationsPopup.dismiss();
+            public void onSuccess(@NonNull List<State> result) {
+                states.clear();
+                states.addAll(result);
+                etState.setAdapter(new ArrayAdapter<>(MainActivity.this, R.layout.dropdown_item, names(result)));
             }
-        });
 
-        set.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) {
-                setNotifications();
-                registerUser();         // for email notifications -> register -> login -> set notifications
-                notificationsPopup.dismiss();
-//                Toast.makeText(MainActivity.this, "Notifier set successfully!\nNow you can close the app but do not remove it from active processes.", Toast.LENGTH_LONG).show();
+            public void onError(@NonNull Exception error) {
+                Log.w(TAG, "Could not load states", error);
+                Toast.makeText(MainActivity.this, R.string.error_states, Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-
-    public void findCenterByPin() {
-
-        ApiInterface apiInterface = ApiClient.getClient().create(ApiInterface.class);
-
-        Call<FindCenterByPinPojo> call = apiInterface.findCenterByPin(110001, "08-05-2021");
-        call.enqueue(new Callback<FindCenterByPinPojo>() {
+    private void loadDistricts(int stateId) {
+        repository.loadDistricts(stateId, new SlotRepository.Callback<List<District>>() {
             @Override
-            public void onResponse(Call<FindCenterByPinPojo> call, Response<FindCenterByPinPojo> response) {
-//                    Log.e(TAG, "Response Code -> " + response.code());
-                if (response.isSuccessful()) {
-                    Log.e(TAG, "Success ");
-                } else {
-                    Log.e(TAG, "URL>>" + response.raw().request().url());
-//                    Toast.makeText(MainActivity.this, "Response Error >> " + response.code() + " " + response.message(), Toast.LENGTH_SHORT).show();
-                }
+            public void onSuccess(@NonNull List<District> result) {
+                districts.clear();
+                districts.addAll(result);
+                etDistrict.setAdapter(new ArrayAdapter<>(MainActivity.this, R.layout.dropdown_item, districtNames(result)));
             }
 
             @Override
-            public void onFailure(Call<FindCenterByPinPojo> call, Throwable t) {
-//                Toast.makeText(MainActivity.this, "Something went wrong!\n>>" + t.getMessage(), Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Something went wrong >>" + t.getMessage());
-            }
-        });
-
-    }       // end findCenterByPin()
-
-    public void findCalendarByPin(int pin, String date) {
-        progressBar.setVisibility(View.VISIBLE);
-        tvNoSlots.setVisibility(View.GONE);
-
-
-        ApiInterface apiInterface = ApiClient.getClient().create(ApiInterface.class);
-
-        Log.e(TAG, ApiClient.getClient().baseUrl().toString());
-
-        Call<CalendarByPinPojo> call = apiInterface.findCalendarByPin(pin, date);
-
-
-        call.enqueue(new Callback<CalendarByPinPojo>() {
-            @Override
-            public void onResponse(Call<CalendarByPinPojo> call, Response<CalendarByPinPojo> response) {
-//                    Log.e(TAG, "Response Code -> " + response.code());
-                if (response.isSuccessful()) {
-                    Log.e(TAG, "PIN URL>>" + response.raw().request().url());
-
-                    progressBar.setVisibility(View.GONE);
-
-                    ArrayList<Center> availabilityDetailsList = (ArrayList<Center>) response.body().getCenters();
-
-                    for (Center c : availabilityDetailsList) {
-                        for (Session s : c.getSessions()) {
-                            Log.e(TAG, "Cnt:" + s.getAvailableCapacity());
-                            if (s.getAvailableCapacity() > 0) {
-                                globalCode.setPin_availability(true);
-                                break;
-                            }
-                        }
-                    }
-
-                    // check if slots are available or not
-                    if (availabilityDetailsList.size() == 0 && detailsTable.getVisibility() != View.VISIBLE)       // no slots available
-                    {
-                        globalCode.setPin_availability(false);
-                        tvNoSlots.setText("No slots available :(");
-                        detailsTable.setVisibility(View.GONE);
-                        tvNoSlots.setVisibility(View.VISIBLE);
-                    } else {
-                        // Passing data to Adapter
-                        availabilityDetailsAdapter = new AvailabilityDetailsRowAdapter(availabilityDetailsList, MainActivity.this);
-                        availabilityDetailsRecylcer.setLayoutManager(availabilityDetailsLayoutManager);
-                        availabilityDetailsRecylcer.setAdapter(availabilityDetailsAdapter);
-
-                        // if details fetched successfully then show the details table
-                        detailsTable.setVisibility(View.VISIBLE);
-                    }
-                } else {
-                    // using no slots textview to display error message
-                    progressBar.setVisibility(View.GONE);
-                    tvNoSlots.setVisibility(View.VISIBLE);
-                    tvNoSlots.setText("Something went wrong!\nPlease make sure your internet in on and you input fields correctly.");
-
-                    Log.e(TAG, "URL>>" + response.raw().request().url());
-//                    Toast.makeText(MainActivity.this, "Response Error >> " + response.message(), Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<CalendarByPinPojo> call, Throwable t) {
-                // using no slots textview to display error message
-                progressBar.setVisibility(View.GONE);
-                tvNoSlots.setVisibility(View.VISIBLE);
-                tvNoSlots.setText("Something went wrong!\nPlease make sure your internet in on and you input fields correctly.");
-//                Toast.makeText(MainActivity.this, "Something went wrong!\n>>" + t.getMessage(), Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Something went wrong >>" + t.getMessage());
-            }
-        });
-
-    }       // end findCalendarByPin()
-
-    public void findCalendarByDistrict(int district_id, String date) {
-
-        progressBar.setVisibility(View.VISIBLE);
-        tvNoSlots.setVisibility(View.GONE);
-
-        ApiInterface apiInterface = ApiClient.getClient().create(ApiInterface.class);
-
-        Log.e(TAG, ApiClient.getClient().baseUrl().toString());
-
-        Call<CalendarByDistrictPojo> call = apiInterface.findCalendarByDistrict(district_id, date);
-
-
-        call.enqueue(new Callback<CalendarByDistrictPojo>() {
-            @Override
-            public void onResponse(Call<CalendarByDistrictPojo> call, Response<CalendarByDistrictPojo> response) {
-//                    Log.e(TAG, "Response Code -> " + response.code());
-                if (response.isSuccessful()) {
-                    Log.e(TAG, "District URL>>" + response.raw().request().url());
-
-                    progressBar.setVisibility(View.GONE);
-
-                    ArrayList<CenterDistrict> availabilityDetailsList = (ArrayList<CenterDistrict>) response.body().getCenters();
-
-                    for (CenterDistrict c : availabilityDetailsList) {
-                        for (SessionDistrict s : c.getSessions()) {
-                            if (s.getAvailableCapacity() > 0) {
-                                globalCode.setDistrict_availability(true);
-                                break;
-                            }
-                        }
-                    }
-
-                    // check if slots are available or not
-                    if (availabilityDetailsList.size() == 0)       // no slots available
-                    {
-                        globalCode.setDistrict_availability(false);
-                        tvNoSlots.setText("No slots available :(");
-                        detailsTable.setVisibility(View.GONE);
-                        tvNoSlots.setVisibility(View.VISIBLE);
-                    } else {
-                        // Passing data to Adapter
-                        availabilityDetailsAdapter = new AvailabilityDetailsRowDistrictAdapter(availabilityDetailsList, MainActivity.this);
-                        availabilityDetailsRecylcer.setLayoutManager(availabilityDetailsLayoutManager);
-                        availabilityDetailsRecylcer.setAdapter(availabilityDetailsAdapter);
-
-                        // if details fetched successfully then show the details table
-                        detailsTable.setVisibility(View.VISIBLE);
-                    }
-                } else {
-                    Log.e(TAG, "URL>>" + response.raw().request().url());
-                    Toast.makeText(MainActivity.this, "Response Error >> " + response.message(), Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<CalendarByDistrictPojo> call, Throwable t) {
-//                Toast.makeText(MainActivity.this, "Something went wrong!\n>>" + t.getMessage(), Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Something went wrong >>" + t.getMessage());
-            }
-        });
-
-    }       // end findCalendarByPin()
-
-
-    public void getDistrictsByStates(int state_id) {
-        ApiInterface apiInterface = ApiClient.getClient().create(ApiInterface.class);
-
-        Log.e(TAG, ApiClient.getClient().baseUrl().toString());
-
-        Call<GetDistrictsByStatesPojo> call = apiInterface.getDistrictsByState(state_id);
-
-
-        call.enqueue(new Callback<GetDistrictsByStatesPojo>() {
-            @Override
-            public void onResponse(Call<GetDistrictsByStatesPojo> call, Response<GetDistrictsByStatesPojo> response) {
-//                    Log.e(TAG, "Response Code -> " + response.code());
-                if (response.isSuccessful()) {
-                    Log.e(TAG, "URL>>" + response.raw().request().url());
-                    districtArrayList = (ArrayList<District>) response.body().getDistricts();
-
-
-                    // setting adapter for dropdown items
-                    for (District d : districtArrayList) {
-                        districtsArray.add(d.getDistrictName());
-                    }
-                    districtsAdapter = new ArrayAdapter<String>(MainActivity.this, R.layout.dropdown_item, districtsArray.toArray(new String[0]));
-                    etDistrict.setAdapter(districtsAdapter);
-                } else {
-                    Log.e(TAG, "Failed URL>>" + response.raw().request().url());
-//                    Toast.makeText(MainActivity.this, "Response Error >> " + response.message(), Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<GetDistrictsByStatesPojo> call, Throwable t) {
-//                Toast.makeText(MainActivity.this, "Something went wrong!\n>>" + t.getMessage(), Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Something went wrong >>" + t.getMessage());
+            public void onError(@NonNull Exception error) {
+                Log.w(TAG, "Could not load districts", error);
+                Toast.makeText(MainActivity.this, R.string.error_districts, Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    public int getStateID(String state) {
-        return states.get(state);
-    }
-
-    public int getDistrictID(String district) {
-        for (District d : districtArrayList) {
-            if (district.equalsIgnoreCase(d.getDistrictName())) {
-                return d.getDistrictId();
+    @Nullable
+    private State findState(@NonNull String name) {
+        for (State state : states) {
+            if (name.trim().equalsIgnoreCase(state.getStateName())) {
+                return state;
             }
         }
-        return -1;
+        return null;
     }
 
+    @Nullable
+    private District findDistrict(@NonNull String name) {
+        for (District district : districts) {
+            if (name.trim().equalsIgnoreCase(district.getDistrictName())) {
+                return district;
+            }
+        }
+        return null;
+    }
 
-    private void logout() {
-        SharedPreferences sharedPreferences = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPreferences.edit();
+    private static List<String> names(List<State> states) {
+        List<String> names = new ArrayList<>();
+        for (State state : states) {
+            names.add(state.getStateName());
+        }
+        return names;
+    }
 
-        editor.putBoolean(LOGIN_STATE, false);
-        editor.apply();
+    private static List<String> districtNames(List<District> districts) {
+        List<String> names = new ArrayList<>();
+        for (District district : districts) {
+            names.add(district.getDistrictName());
+        }
+        return names;
+    }
 
-        GoogleSignInClient mGoogleSignInClient = globalCode.getGoogleSignInClient();
+    // ---- Query & search ----------------------------------------------------
 
-        mGoogleSignInClient.signOut().addOnCompleteListener(MainActivity.this, new OnCompleteListener<Void>() {
+    private void showAgeGroupMenu(View anchor) {
+        PopupMenu menu = new PopupMenu(this, anchor);
+        menu.getMenuInflater().inflate(R.menu.agegroup_menu, menu.getMenu());
+        menu.setOnMenuItemClickListener(item -> {
+            setAgeGroup(AgeGroup.fromLabel(String.valueOf(item.getTitle())));
+            return true;
+        });
+        menu.show();
+    }
+
+    private void setAgeGroup(@NonNull AgeGroup group) {
+        ageGroup = group;
+        etAgeGroup.setText(group.label());
+    }
+
+    /** Builds the query from the form, or returns {@code null} after telling the user what is missing. */
+    @Nullable
+    private SearchQuery buildQuery() {
+        if (findBy.getCheckedRadioButtonId() == R.id.findbypin) {
+            String pin = etPin.getText().toString().trim();
+            if (!SearchQuery.isValidPincode(pin)) {
+                Toast.makeText(this, R.string.error_pincode, Toast.LENGTH_SHORT).show();
+                return null;
+            }
+            return SearchQuery.byPin(Integer.parseInt(pin), ageGroup);
+        }
+        if (selectedState == null) {
+            selectedState = findState(etState.getText().toString());
+        }
+        if (selectedDistrict == null) {
+            selectedDistrict = findDistrict(etDistrict.getText().toString());
+        }
+        if (selectedState == null) {
+            Toast.makeText(this, R.string.error_state, Toast.LENGTH_SHORT).show();
+            return null;
+        }
+        if (selectedDistrict == null || selectedDistrict.getDistrictId() == null) {
+            Toast.makeText(this, R.string.error_district, Toast.LENGTH_SHORT).show();
+            return null;
+        }
+        return SearchQuery.byDistrict(selectedDistrict.getDistrictId(), selectedState.getStateName(),
+                selectedDistrict.getDistrictName(), ageGroup);
+    }
+
+    private void search() {
+        SearchQuery query = buildQuery();
+        if (query == null) {
+            return;
+        }
+        setLoading(true);
+        repository.search(query, new SlotRepository.Callback<List<Center>>() {
             @Override
-            public void onComplete(@NonNull Task<Void> task) {
-                Toast.makeText(MainActivity.this, "You have successfully logged out!", Toast.LENGTH_SHORT).show();
+            public void onSuccess(@NonNull List<Center> result) {
+                setLoading(false);
+                adapter.setCenters(result);
+                showEmpty(result.isEmpty() ? getString(R.string.no_slots, query.describeArea()) : null);
+            }
+
+            @Override
+            public void onError(@NonNull Exception error) {
+                Log.w(TAG, "Search failed for " + query, error);
+                setLoading(false);
+                adapter.clear();
+                showEmpty(getString(R.string.error_network));
             }
         });
     }
 
+    private void setLoading(boolean loading) {
+        progress.setVisibility(loading ? View.VISIBLE : View.GONE);
+        btnSearch.setEnabled(!loading);
+        if (loading) {
+            tvEmpty.setVisibility(View.GONE);
+        }
+    }
 
+    private void showEmpty(@Nullable String message) {
+        tvEmpty.setText(message);
+        tvEmpty.setVisibility(message == null ? View.GONE : View.VISIBLE);
+    }
+
+    private void clearResults() {
+        adapter.clear();
+        showEmpty(null);
+        districts.clear();
+        selectedState = null;
+        selectedDistrict = null;
+        etState.setText("");
+        etDistrict.setText("");
+    }
+
+    /** Puts a saved notifier query back into the form. */
+    private void prefill(@NonNull SearchQuery query) {
+        setAgeGroup(query.getAgeGroup());
+        if (query.isByPin()) {
+            findBy.check(R.id.findbypin);
+            etPin.setText(String.valueOf(query.getPincode()));
+        } else {
+            findBy.check(R.id.findbydistrict);
+            selectedState = new State(null, query.getStateName());
+            District district = new District();
+            district.setDistrictId(query.getDistrictId());
+            district.setDistrictName(query.getDistrictName());
+            selectedDistrict = district;
+            etState.setText(query.getStateName());
+            etDistrict.setText(query.getDistrictName());
+        }
+    }
+
+    // ---- Background alerts -------------------------------------------------
+
+    private void confirmAlerts() {
+        SearchQuery query = buildQuery();
+        if (query == null) {
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.notifier_dialog_title)
+                .setMessage(getString(R.string.notifier_dialog_message, query.describeArea(), query.getAgeGroup().label()))
+                .setPositiveButton(R.string.notifier_dialog_start, (dialog, which) -> {
+                    SlotNotifierScheduler.schedule(this, query);
+                    renderNotifierStatus();
+                    Toast.makeText(this, R.string.toast_alerts_started, Toast.LENGTH_LONG).show();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void stopAlerts() {
+        SlotNotifierScheduler.cancel(this);
+        renderNotifierStatus();
+        Toast.makeText(this, R.string.toast_alerts_stopped, Toast.LENGTH_SHORT).show();
+    }
+
+    private void renderNotifierStatus() {
+        SearchQuery watched = preferences.getNotifierQuery();
+        if (watched != null) {
+            tvStatus.setText(getString(R.string.notifier_status_active, watched.describeArea(), watched.getAgeGroup().label()));
+            tvStatus.setVisibility(View.VISIBLE);
+            btnNotify.setText(R.string.action_stop_alerts);
+            btnNotify.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.colorRed)));
+        } else {
+            tvStatus.setVisibility(View.GONE);
+            btnNotify.setText(R.string.action_notify_me);
+            btnNotify.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.colorGreen)));
+        }
+        invalidateOptionsMenu();
+    }
+
+    private void showAbout() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.app_name)
+                .setMessage(getString(R.string.about_message, BuildConfig.VERSION_NAME))
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
 }

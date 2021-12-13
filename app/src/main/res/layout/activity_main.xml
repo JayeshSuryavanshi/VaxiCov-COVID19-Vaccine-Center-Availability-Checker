@@ -1,396 +1,201 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:id="@+id/drawer_layout"
     android:background="@color/background_main"
+    android:orientation="vertical"
     tools:context=".MainActivity">
 
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/background_overlay"
+        app:popupTheme="@style/ThemeOverlay.AppCompat.Dark"
+        app:subtitleTextColor="@color/editTextBorderLight"
+        app:title="@string/app_name"
+        app:titleTextAppearance="@style/TextAppearance.VaxiCov.Title"
+        app:titleTextColor="@color/colorOrange" />
+
+    <!-- Search form -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:layout_height="wrap_content"
+        android:layout_margin="12dp"
+        android:background="@drawable/custom_input"
+        android:orientation="vertical"
+        android:padding="16dp">
 
-        <!--  Toolbar      -->
-        <androidx.appcompat.widget.Toolbar
-            android:id="@+id/toolbar"
+        <RadioGroup
+            android:id="@+id/rg_findby"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            app:popupTheme="@style/Theme.AppCompat.Light"
-            app:titleTextColor="@color/colorBlack"
-            >
+            android:layout_height="36dp"
+            android:background="@drawable/pink_out_line"
+            android:orientation="horizontal">
 
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:orientation="horizontal"
-                >
-                <ImageView
-                    android:layout_width="30dp"
-                    android:layout_height="match_parent"
-                    android:src="@mipmap/flag1"
-                    />
+            <RadioButton
+                android:id="@+id/findbypin"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_margin="1dp"
+                android:layout_weight="1"
+                android:background="@drawable/toggle_widget_background"
+                android:button="@null"
+                android:checked="true"
+                android:fontFamily="@font/roboto_condensed_bold"
+                android:gravity="center"
+                android:text="@string/find_by_pincode"
+                android:textColor="@color/colorLightGrey" />
 
-                <TextView
-                    android:id="@+id/toolbar_title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginLeft="5dp"
-                    android:fontFamily="@font/quantico"
-                    android:text="vaxicov"
-                    android:textColor="@color/colorLightGrey"
-                    android:textSize="24dp"
-                    android:textStyle="bold" />
+            <RadioButton
+                android:id="@+id/findbydistrict"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_margin="1dp"
+                android:layout_weight="1"
+                android:background="@drawable/toggle_widget_background"
+                android:button="@null"
+                android:fontFamily="@font/roboto_condensed_bold"
+                android:gravity="center"
+                android:text="@string/find_by_district"
+                android:textColor="@color/colorLightGrey" />
+        </RadioGroup>
 
-            </LinearLayout>
+        <EditText
+            android:id="@+id/et_pin"
+            style="@style/Widget.VaxiCov.Input"
+            android:layout_marginTop="16dp"
+            android:drawableStart="@drawable/custom_pin_icon"
+            android:hint="@string/hint_pincode"
+            android:importantForAutofill="no"
+            android:inputType="number"
+            android:maxLength="6" />
 
+        <AutoCompleteTextView
+            android:id="@+id/et_state"
+            style="@style/Widget.VaxiCov.Input"
+            android:layout_marginTop="16dp"
+            android:completionThreshold="1"
+            android:drawableStart="@drawable/custom_pin_icon"
+            android:hint="@string/hint_state"
+            android:imeOptions="actionNext"
+            android:inputType="textCapWords"
+            android:visibility="gone" />
 
-        </androidx.appcompat.widget.Toolbar>
+        <AutoCompleteTextView
+            android:id="@+id/et_district"
+            style="@style/Widget.VaxiCov.Input"
+            android:layout_marginTop="12dp"
+            android:completionThreshold="1"
+            android:drawableStart="@drawable/custom_pin_icon"
+            android:hint="@string/hint_district"
+            android:imeOptions="actionDone"
+            android:inputType="textCapWords"
+            android:visibility="gone" />
 
-        <!--        <com.google.android.gms.common.SignInButton-->
-        <!--            android:id="@+id/sign_in_button"-->
-        <!--            android:layout_width="wrap_content"-->
-        <!--            android:layout_height="wrap_content"-->
-        <!--            />-->
-        <!--  MainActivity Body      -->
+        <EditText
+            android:id="@+id/et_agegroup"
+            style="@style/Widget.VaxiCov.Input"
+            android:layout_marginTop="12dp"
+            android:clickable="true"
+            android:cursorVisible="false"
+            android:drawableStart="@drawable/custom_agegroup_icon"
+            android:focusable="false"
+            android:hint="@string/hint_age_group"
+            android:importantForAutofill="no"
+            android:inputType="none" />
+
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            >
-            <LinearLayout
-                android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_search"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:background="@drawable/custom_input"
-                android:elevation="5dp"
-                android:layout_margin="10dp"
-                android:orientation="vertical"
-               >
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:backgroundTint="@color/colorOrange"
+                android:fontFamily="@font/roboto_condensed_bold"
+                android:text="@string/action_search"
+                android:textAllCaps="false"
+                android:textColor="@color/colorLightGrey"
+                android:textSize="16sp"
+                app:cornerRadius="6dp" />
 
-                <RadioGroup
-                    android:id="@+id/rg_findby"
-                    android:layout_width="match_parent"
-                    android:layout_height="35dp"
-                    android:layout_marginBottom="2dp"
-                    android:layout_marginLeft="20dp"
-                    android:layout_marginRight="20dp"
-                    android:layout_marginTop="20dp"
-                    android:background="@drawable/pink_out_line"
-                    android:orientation="horizontal">
-
-                    <RadioButton
-                        android:id="@+id/findbypin"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_marginLeft="1dp"
-                        android:layout_marginTop="1dp"
-                        android:layout_marginBottom="1dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/toggle_widget_background"
-                        android:button="@null"
-                        android:checked="true"
-                        android:fontFamily="@font/roboto_condensed_regular"
-                        android:gravity="center"
-                        android:text="Find by pincode"
-                        android:textColor="@color/colorLightGrey"
-                        android:textStyle="bold" />
-
-                    <RadioButton
-                        android:id="@+id/findbydistrict"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_marginTop="1dp"
-                        android:layout_marginRight="1dp"
-                        android:layout_marginBottom="1dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/toggle_widget_background"
-                        android:button="@null"
-                        android:checked="false"
-                        android:textStyle="bold"
-                        android:fontFamily="@font/roboto_condensed_bold"
-                        android:gravity="center"
-                        android:text="Find by District"
-                        android:textColor="@color/colorLightGrey" />
-                </RadioGroup>
-
-                <AutoCompleteTextView
-                    android:id="@+id/et_state"
-                    android:layout_width="match_parent"
-                    android:visibility="gone"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="30dp"
-                    android:layout_marginLeft="20dp"
-                    android:layout_marginRight="20dp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:fontFamily="@font/roboto_condensed_regular"
-                    android:drawableStart="@drawable/custom_pin_icon"
-                    android:drawablePadding="12dp"
-                    android:background="@drawable/custom_input"
-                    android:ems="10"
-                    android:textSize="18dp"
-                    android:textColor="@color/colorLightGrey"
-                    android:hint="State"
-                    android:textColorHint="#474747"
-                    />
-
-                <AutoCompleteTextView
-                    android:id="@+id/et_district"
-                    android:layout_width="match_parent"
-                    android:visibility="gone"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="20dp"
-                    android:layout_marginLeft="20dp"
-                    android:layout_marginRight="20dp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:fontFamily="@font/roboto_condensed_regular"
-                    android:drawableStart="@drawable/custom_pin_icon"
-                    android:drawablePadding="12dp"
-                    android:background="@drawable/custom_input"
-                    android:ems="10"
-                    android:textSize="18dp"
-                    android:textColor="@color/colorLightGrey"
-                    android:hint="District"
-                    android:textColorHint="#474747"
-                    />
-
-                <EditText
-                    android:id="@+id/et_pin"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="30dp"
-                    android:layout_marginLeft="20dp"
-                    android:layout_marginRight="20dp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:visibility="visible"
-                    android:drawableStart="@drawable/custom_pin_icon"
-                    android:drawablePadding="12dp"
-                    android:background="@drawable/custom_input"
-                    android:ems="10"
-                    android:textSize="18dp"
-                    android:textColor="@color/colorLightGrey"
-                    android:hint="Pincode"
-                    android:inputType="number"
-                    android:textColorHint="#474747"
-                    />
-                <EditText
-                    android:id="@+id/et_agegroup"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="20dp"
-                    android:layout_marginLeft="20dp"
-                    android:layout_marginRight="20dp"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:fontFamily="@font/roboto_condensed_regular"
-                    android:drawableStart="@drawable/custom_agegroup_icon"
-                    android:drawablePadding="12dp"
-                    android:background="@drawable/custom_input"
-                    android:ems="10"
-                    android:textSize="18dp"
-                    android:textColor="@color/colorLightGrey"
-                    android:hint="Age Group"
-                    android:inputType="none"
-                    android:editable="false"
-                    android:textColorHint="#474747"
-                    />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="30dp"
-                    android:layout_marginLeft="10dp"
-                    android:layout_marginRight="10dp"
-                    android:weightSum="2">
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_search"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_margin="10dp"
-                        android:fontFamily="@font/roboto_condensed_regular"
-                        android:text="Search"
-                        android:textAllCaps="false"
-                        android:textColor="@color/colorLightGrey"
-                        app:cornerRadius="5dp"
-                        android:backgroundTint="@color/colorOrange"
-                        android:layout_weight="1"
-                        android:textSize="18dp"
-                        />
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_notify"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_margin="10dp"
-                        android:text="Notify Me"
-                        android:fontFamily="@font/roboto_condensed_regular"
-                        android:textAllCaps="false"
-                        android:textColor="@color/colorLightGrey"
-                        app:cornerRadius="5dp"
-                        android:backgroundTint="@color/colorGreen"
-                        android:layout_weight="1"
-                        android:textSize="18dp"
-                        />
-                </LinearLayout>
-            </LinearLayout>
-
-
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <TextView
-                    android:id="@+id/tv_no_slots"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="No slots available :("
-                    android:fontFamily="@font/roboto_condensed_regular"
-                    android:textStyle="bold"
-                    android:layout_marginTop="20dp"
-                    android:textColor="@color/colorRed"
-                    android:textAlignment="center"
-                    android:textSize="24dp"
-                    android:visibility="gone"
-                    />
-
-                <!--   Availibility Info Table         -->
-                <LinearLayout
-                    android:id="@+id/ll_details_table"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginLeft="10dp"
-                    android:layout_marginRight="10dp"
-                    android:layout_marginTop="20dp"
-                    android:visibility="gone"
-                    android:orientation="vertical">
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:weightSum="1">
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="0.4"
-                            android:text="Center"
-                            android:fontFamily="@font/roboto_condensed_regular"
-                            android:textStyle="bold"
-                            android:textSize="14dp"
-                            />
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="0.2"
-                            android:text="Vaccine"
-                            android:fontFamily="@font/roboto_condensed_regular"
-                            android:textStyle="bold"
-                            android:textSize="14dp"
-                            />
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="0.2"
-                            android:text="Date"
-                            android:fontFamily="@font/roboto_condensed_regular"
-                            android:textStyle="bold"
-                            android:textSize="14dp"
-                            />
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="0.2"
-                            android:text="Availability"
-                            android:fontFamily="@font/roboto_condensed_regular"
-                            android:textStyle="bold"
-                            android:textSize="14dp"
-                            />
-                    </LinearLayout>
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginTop="10dp"
-                        android:background="@color/editTextBorder"/>
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rv_availability_details"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:padding="5dp" />
-
-                    <!--                <include layout="@layout/details_row"/>-->
-
-                </LinearLayout>
-
-
-                <ProgressBar
-                    android:id="@+id/progressbar"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:visibility="gone"
-                    />
-
-
-            </FrameLayout>
-
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_notify"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:backgroundTint="@color/colorGreen"
+                android:fontFamily="@font/roboto_condensed_bold"
+                android:text="@string/action_notify_me"
+                android:textAllCaps="false"
+                android:textColor="@color/colorLightGrey"
+                android:textSize="16sp"
+                app:cornerRadius="6dp" />
         </LinearLayout>
-
     </LinearLayout>
 
-    <!-- Navigation Drawer   -->
-    <com.google.android.material.navigation.NavigationView
-        android:id="@+id/nav_view"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:layout_gravity="start"
-        app:menu="@menu/drawer_menu"
-        app:headerLayout="@layout/nav_header"
-        android:background="@color/background_main"
-        app:itemIconTint="@drawable/nav_drawer_tab_color"
-        app:itemTextColor="@drawable/nav_drawer_tab_color"
-        >
-        <FrameLayout
+    <TextView
+        android:id="@+id/tv_notifier_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:drawableStart="@drawable/notification_icon"
+        android:drawablePadding="8dp"
+        android:fontFamily="@font/roboto_condensed_regular"
+        android:gravity="center_vertical"
+        android:textColor="@color/colorGreen"
+        android:textSize="14sp"
+        android:visibility="gone"
+        tools:text="Watching pincode 422011 (All) every 15 minutes"
+        tools:visibility="visible" />
+
+    <!-- Results -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_centers"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:layout_marginBottom="40dp"
-            >
-            <TextView
-                android:id="@+id/tv_users_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:layout_gravity="center"
-                android:textColor="@color/colorLightGrey"
-                android:textSize="18dp"
-                android:fontFamily="@font/roboto_condensed_regular"
-                android:text="Total Users: 10"
-                android:visibility="invisible"
-                />
-            <ProgressBar
-                android:id="@+id/progressbar_user_count"
-                android:layout_width="25dp"
-                android:layout_height="25dp" android:gravity="center"
-                android:layout_gravity="center"
-                />
-        </FrameLayout>
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingStart="12dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="12dp"
+            tools:listitem="@layout/item_center" />
 
         <TextView
-            android:id="@+id/tv_madeby"
+            android:id="@+id/tv_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:fontFamily="@font/roboto_condensed_regular"
+            android:gravity="center"
+            android:padding="24dp"
+            android:textColor="@color/colorLightGrey"
+            android:textSize="16sp"
+            android:visibility="gone"
+            tools:text="@string/error_network"
+            tools:visibility="visible" />
+
+        <ProgressBar
+            android:id="@+id/progressbar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|center_horizontal"
-            android:layout_marginBottom="10dp"
-            android:textColor="@color/colorLightGrey"
-            android:textSize="13dp"
-            android:fontFamily="@font/roboto_condensed_regular"
-            android:text="Developed with ❤ by Akshay &amp; Jayesh"/>
+            android:layout_gravity="center"
+            android:visibility="gone" />
+    </FrameLayout>
 
-    </com.google.android.material.navigation.NavigationView>
-
-</androidx.drawerlayout.widget.DrawerLayout>
+</LinearLayout>
