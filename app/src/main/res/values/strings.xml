@@ -13,6 +13,20 @@
     <string name="action_notify_me">Notify me</string>
     <string name="action_stop_alerts">Stop alerts</string>
 
+    <string name="hint_dose">Dose</string>
+    <string name="hint_vaccine">Vaccine</string>
+
+    <!-- Dose types: labels must match DoseType.label() -->
+    <string name="dose_any">Any</string>
+    <string name="dose_first">Dose 1</string>
+    <string name="dose_second">Dose 2</string>
+
+    <!-- Vaccine filter: "Any" must match SearchQuery.ANY_VACCINE -->
+    <string name="vaccine_any">Any</string>
+    <string name="vaccine_covishield">COVISHIELD</string>
+    <string name="vaccine_covaxin">COVAXIN</string>
+    <string name="vaccine_sputnik">SPUTNIK V</string>
+
     <!-- Age groups: labels must match AgeGroup.label() -->
     <string name="age_group_all">All</string>
     <string name="age_group_18_44">18-44</string>
@@ -28,9 +42,9 @@
     <string name="error_district">Pick a district from the list.</string>
 
     <!-- Background alerts -->
-    <string name="notifier_status_active">Watching %1$s (%2$s) every 15 minutes</string>
+    <string name="notifier_status_active">Watching %1$s · %2$s · every 15 minutes</string>
     <string name="notifier_dialog_title">Alert me about new slots?</string>
-    <string name="notifier_dialog_message">VaxiCov will check %1$s (age group %2$s) roughly every 15 minutes, even when the app is closed, and notify you when bookable slots appear.\n\nOnly one area is watched at a time; starting a new watch replaces the previous one.</string>
+    <string name="notifier_dialog_message">VaxiCov will check %1$s (%2$s) roughly every 15 minutes, even when the app is closed, and notify you when bookable slots appear.\n\nOnly one area is watched at a time; starting a new watch replaces the previous one.</string>
     <string name="notifier_dialog_start">Start</string>
     <string name="toast_alerts_started">Alerts started. You can close the app.</string>
     <string name="toast_alerts_stopped">Alerts stopped.</string>

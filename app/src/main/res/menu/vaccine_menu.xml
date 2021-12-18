@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/vaccine_any" android:title="@string/vaccine_any" />
+    <item android:id="@+id/vaccine_covishield" android:title="@string/vaccine_covishield" />
+    <item android:id="@+id/vaccine_covaxin" android:title="@string/vaccine_covaxin" />
+    <item android:id="@+id/vaccine_sputnik" android:title="@string/vaccine_sputnik" />
+</menu>

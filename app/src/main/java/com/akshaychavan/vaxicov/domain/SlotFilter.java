@@ -23,17 +23,39 @@ public final class SlotFilter {
     }
 
     /**
-     * Returns copies of the given centers containing only sessions that have
-     * at least one available dose and match {@code ageGroup}. Centers left
+     * Convenience for callers that only filter by age group.
+     *
+     * @see #availableCenters(List, AgeGroup, DoseType, String)
+     */
+    @NonNull
+    public static List<Center> availableCenters(@Nullable List<Center> centers, @NonNull AgeGroup ageGroup) {
+        return availableCenters(centers, ageGroup, DoseType.ANY, null);
+    }
+
+    /** Applies the query's age group, dose and vaccine filters. */
+    @NonNull
+    public static List<Center> availableCenters(@Nullable List<Center> centers, @NonNull SearchQuery query) {
+        return availableCenters(centers, query.getAgeGroup(), query.getDose(), query.getVaccine());
+    }
+
+    /**
+     * Returns copies of the given centers containing only sessions that match
+     * the age group and vaccine and have at least one dose of the requested
+     * type. In the copies, {@link Session#getAvailableCapacity()} holds the
+     * capacity for that dose type, so totals, ordering and the change
+     * signature all describe what the user can actually book. Centers left
      * without sessions are dropped. The result is sorted by total available
      * capacity (descending), then by center name.
      */
     @NonNull
-    public static List<Center> availableCenters(@Nullable List<Center> centers, @NonNull AgeGroup ageGroup) {
+    public static List<Center> availableCenters(@Nullable List<Center> centers, @NonNull AgeGroup ageGroup,
+                                                @NonNull DoseType dose, @Nullable String vaccine) {
         List<Center> result = new ArrayList<>();
         if (centers == null) {
             return result;
         }
+        String wantedVaccine = vaccine == null || vaccine.trim().isEmpty()
+                || SearchQuery.ANY_VACCINE.equalsIgnoreCase(vaccine.trim()) ? null : vaccine.trim();
         for (Center center : centers) {
             if (center == null) {
                 continue;
@@ -42,8 +64,16 @@ public final class SlotFilter {
             List<Session> sessions = center.getSessions();
             if (sessions != null) {
                 for (Session session : sessions) {
-                    if (isBookable(session) && ageGroup.matches(session.getMinAgeLimit())) {
-                        bookable.add(session);
+                    if (session == null || !ageGroup.matches(session.getMinAgeLimit())) {
+                        continue;
+                    }
+                    if (wantedVaccine != null && (session.getVaccine() == null
+                            || !wantedVaccine.equalsIgnoreCase(session.getVaccine().trim()))) {
+                        continue;
+                    }
+                    int capacity = dose.capacity(session);
+                    if (capacity > 0) {
+                        bookable.add(dose == DoseType.ANY ? session : new Session(session, capacity));
                     }
                 }
             }

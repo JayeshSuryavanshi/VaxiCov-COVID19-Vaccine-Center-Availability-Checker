@@ -31,6 +31,7 @@ import com.akshaychavan.vaxicov.adapters.CenterAdapter;
 import com.akshaychavan.vaxicov.data.SlotProviders;
 import com.akshaychavan.vaxicov.data.SlotRepository;
 import com.akshaychavan.vaxicov.domain.AgeGroup;
+import com.akshaychavan.vaxicov.domain.DoseType;
 import com.akshaychavan.vaxicov.domain.SearchQuery;
 import com.akshaychavan.vaxicov.notifier.AvailabilityNotifier;
 import com.akshaychavan.vaxicov.notifier.SlotNotifierScheduler;
@@ -50,6 +51,8 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
     private static final String STATE_AGE_GROUP = "age_group";
+    private static final String STATE_DOSE = "dose";
+    private static final String STATE_VACCINE = "vaccine";
 
     private AppPreferences preferences;
     private SlotRepository repository;
@@ -57,6 +60,8 @@ public class MainActivity extends AppCompatActivity {
     private RadioGroup findBy;
     private EditText etPin;
     private EditText etAgeGroup;
+    private EditText etDose;
+    private EditText etVaccine;
     private AutoCompleteTextView etState;
     private AutoCompleteTextView etDistrict;
     private Button btnSearch;
@@ -72,6 +77,8 @@ public class MainActivity extends AppCompatActivity {
     @Nullable private State selectedState;
     @Nullable private District selectedDistrict;
     @NonNull private AgeGroup ageGroup = AgeGroup.ALL;
+    @NonNull private DoseType dose = DoseType.ANY;
+    @NonNull private String vaccine = SearchQuery.ANY_VACCINE;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,8 +96,12 @@ public class MainActivity extends AppCompatActivity {
 
         if (savedInstanceState != null) {
             setAgeGroup(AgeGroup.fromLabel(savedInstanceState.getString(STATE_AGE_GROUP)));
+            setDose(DoseType.fromLabel(savedInstanceState.getString(STATE_DOSE)));
+            setVaccine(savedInstanceState.getString(STATE_VACCINE));
         } else {
             setAgeGroup(AgeGroup.ALL);
+            setDose(DoseType.ANY);
+            setVaccine(SearchQuery.ANY_VACCINE);
             SearchQuery watched = preferences.getNotifierQuery();
             if (watched != null) {
                 prefill(watched);
@@ -120,6 +131,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putString(STATE_AGE_GROUP, ageGroup.label());
+        outState.putString(STATE_DOSE, dose.label());
+        outState.putString(STATE_VACCINE, vaccine);
     }
 
     @Override
@@ -176,6 +189,8 @@ public class MainActivity extends AppCompatActivity {
         findBy = findViewById(R.id.rg_findby);
         etPin = findViewById(R.id.et_pin);
         etAgeGroup = findViewById(R.id.et_agegroup);
+        etDose = findViewById(R.id.et_dose);
+        etVaccine = findViewById(R.id.et_vaccine);
         etState = findViewById(R.id.et_state);
         etDistrict = findViewById(R.id.et_district);
         btnSearch = findViewById(R.id.btn_search);
@@ -199,6 +214,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         etAgeGroup.setOnClickListener(this::showAgeGroupMenu);
+        etDose.setOnClickListener(this::showDoseMenu);
+        etVaccine.setOnClickListener(this::showVaccineMenu);
 
         etState.setOnItemClickListener((parent, view, position, id) -> {
             selectedState = findState(etState.getText().toString());
@@ -323,6 +340,36 @@ public class MainActivity extends AppCompatActivity {
         etAgeGroup.setText(group.label());
     }
 
+    private void showDoseMenu(View anchor) {
+        PopupMenu menu = new PopupMenu(this, anchor);
+        menu.getMenuInflater().inflate(R.menu.dose_menu, menu.getMenu());
+        menu.setOnMenuItemClickListener(item -> {
+            setDose(DoseType.fromLabel(String.valueOf(item.getTitle())));
+            return true;
+        });
+        menu.show();
+    }
+
+    private void setDose(@NonNull DoseType type) {
+        dose = type;
+        etDose.setText(type.label());
+    }
+
+    private void showVaccineMenu(View anchor) {
+        PopupMenu menu = new PopupMenu(this, anchor);
+        menu.getMenuInflater().inflate(R.menu.vaccine_menu, menu.getMenu());
+        menu.setOnMenuItemClickListener(item -> {
+            setVaccine(String.valueOf(item.getTitle()));
+            return true;
+        });
+        menu.show();
+    }
+
+    private void setVaccine(@Nullable String name) {
+        vaccine = name == null || name.trim().isEmpty() ? SearchQuery.ANY_VACCINE : name.trim();
+        etVaccine.setText(vaccine);
+    }
+
     /** Builds the query from the form, or returns {@code null} after telling the user what is missing. */
     @Nullable
     private SearchQuery buildQuery() {
@@ -332,7 +379,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, R.string.error_pincode, Toast.LENGTH_SHORT).show();
                 return null;
             }
-            return SearchQuery.byPin(Integer.parseInt(pin), ageGroup);
+            return SearchQuery.byPin(Integer.parseInt(pin), ageGroup).withFilters(dose, vaccine);
         }
         if (selectedState == null) {
             selectedState = findState(etState.getText().toString());
@@ -349,7 +396,7 @@ public class MainActivity extends AppCompatActivity {
             return null;
         }
         return SearchQuery.byDistrict(selectedDistrict.getDistrictId(), selectedState.getStateName(),
-                selectedDistrict.getDistrictName(), ageGroup);
+                selectedDistrict.getDistrictName(), ageGroup).withFilters(dose, vaccine);
     }
 
     private void search() {
@@ -402,6 +449,8 @@ public class MainActivity extends AppCompatActivity {
     /** Puts a saved notifier query back into the form. */
     private void prefill(@NonNull SearchQuery query) {
         setAgeGroup(query.getAgeGroup());
+        setDose(query.getDose());
+        setVaccine(query.getVaccine());
         if (query.isByPin()) {
             findBy.check(R.id.findbypin);
             etPin.setText(String.valueOf(query.getPincode()));
@@ -426,7 +475,7 @@ public class MainActivity extends AppCompatActivity {
         }
         new AlertDialog.Builder(this)
                 .setTitle(R.string.notifier_dialog_title)
-                .setMessage(getString(R.string.notifier_dialog_message, query.describeArea(), query.getAgeGroup().label()))
+                .setMessage(getString(R.string.notifier_dialog_message, query.describeArea(), query.describeFilters()))
                 .setPositiveButton(R.string.notifier_dialog_start, (dialog, which) -> {
                     SlotNotifierScheduler.schedule(this, query);
                     renderNotifierStatus();
@@ -445,7 +494,7 @@ public class MainActivity extends AppCompatActivity {
     private void renderNotifierStatus() {
         SearchQuery watched = preferences.getNotifierQuery();
         if (watched != null) {
-            tvStatus.setText(getString(R.string.notifier_status_active, watched.describeArea(), watched.getAgeGroup().label()));
+            tvStatus.setText(getString(R.string.notifier_status_active, watched.describeArea(), watched.describeFilters()));
             tvStatus.setVisibility(View.VISIBLE);
             btnNotify.setText(R.string.action_stop_alerts);
             btnNotify.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.colorRed)));

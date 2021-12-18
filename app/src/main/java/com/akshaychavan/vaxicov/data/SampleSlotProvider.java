@@ -145,7 +145,10 @@ public final class SampleSlotProvider implements SlotProvider {
                 session.setFee(paid ? "780" : "0");
                 // Roughly 40% of sessions are fully booked, like a real busy day.
                 int capacity = Math.abs(h) % 10 < 4 ? 0 : 1 + Math.abs(h >> 8) % 120;
+                int dose1 = capacity * (Math.abs(h >> 13) % 101) / 100;
                 session.setAvailableCapacity(capacity);
+                session.setAvailableCapacityDose1(dose1);
+                session.setAvailableCapacityDose2(capacity - dose1);
                 session.setSlots(Collections.singletonList("09:00AM-05:00PM"));
                 sessions.add(session);
             }

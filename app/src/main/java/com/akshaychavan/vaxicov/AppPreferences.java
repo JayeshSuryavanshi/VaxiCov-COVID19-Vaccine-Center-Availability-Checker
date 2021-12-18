@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.akshaychavan.vaxicov.domain.AgeGroup;
+import com.akshaychavan.vaxicov.domain.DoseType;
 import com.akshaychavan.vaxicov.domain.SearchQuery;
 
 /**
@@ -25,6 +26,8 @@ public final class AppPreferences {
     private static final String KEY_QUERY_STATE_NAME = "notifier_state_name";
     private static final String KEY_QUERY_DISTRICT_NAME = "notifier_district_name";
     private static final String KEY_QUERY_AGE_GROUP = "notifier_age_group";
+    private static final String KEY_QUERY_DOSE = "notifier_dose";
+    private static final String KEY_QUERY_VACCINE = "notifier_vaccine";
     private static final String KEY_LAST_SIGNATURE = "notifier_last_signature";
     /** Public so screens can react to notifier changes through {@link #registerListener}. */
     public static final String KEY_NOTIFIER_MODE = KEY_QUERY_MODE;
@@ -45,6 +48,8 @@ public final class AppPreferences {
                 .putString(KEY_QUERY_STATE_NAME, query.getStateName())
                 .putString(KEY_QUERY_DISTRICT_NAME, query.getDistrictName())
                 .putString(KEY_QUERY_AGE_GROUP, query.getAgeGroup().label())
+                .putString(KEY_QUERY_DOSE, query.getDose().label())
+                .putString(KEY_QUERY_VACCINE, query.getVaccine())
                 .remove(KEY_LAST_SIGNATURE)
                 .apply();
     }
@@ -67,6 +72,8 @@ public final class AppPreferences {
                     prefs.getString(KEY_QUERY_DISTRICT_NAME, null),
                     ageGroup);
         }
+        query = query.withFilters(DoseType.fromLabel(prefs.getString(KEY_QUERY_DOSE, null)),
+                prefs.getString(KEY_QUERY_VACCINE, null));
         return query.isValid() ? query : null;
     }
 
@@ -78,6 +85,8 @@ public final class AppPreferences {
                 .remove(KEY_QUERY_STATE_NAME)
                 .remove(KEY_QUERY_DISTRICT_NAME)
                 .remove(KEY_QUERY_AGE_GROUP)
+                .remove(KEY_QUERY_DOSE)
+                .remove(KEY_QUERY_VACCINE)
                 .remove(KEY_LAST_SIGNATURE)
                 .apply();
     }
