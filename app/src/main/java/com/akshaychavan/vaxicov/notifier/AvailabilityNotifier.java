@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
+import com.akshaychavan.vaxicov.AppPreferences;
 import com.akshaychavan.vaxicov.MainActivity;
 import com.akshaychavan.vaxicov.R;
 import com.akshaychavan.vaxicov.domain.SearchQuery;
@@ -24,7 +25,9 @@ public final class AvailabilityNotifier {
 
     public static final String CHANNEL_ID = "slot_alerts";
     public static final String EXTRA_FROM_NOTIFICATION = "com.akshaychavan.vaxicov.FROM_NOTIFICATION";
-    private static final int NOTIFICATION_ID = 100;
+    /** Index into {@link AppPreferences#getWatches()} of the watch that fired, or -1. */
+    public static final String EXTRA_WATCH_INDEX = "com.akshaychavan.vaxicov.WATCH_INDEX";
+    private static final int NOTIFICATION_ID_BASE = 100;
     private static final int MAX_CENTERS_LISTED = 5;
 
     private AvailabilityNotifier() {
@@ -64,24 +67,30 @@ public final class AvailabilityNotifier {
                     .append(" (").append(SlotFilter.totalAvailable(center)).append(')');
         }
 
+        int notificationId = NOTIFICATION_ID_BASE + (query.hashCode() & 0x7fffffff) % 1000;
         Intent open = new Intent(context, MainActivity.class)
                 .putExtra(EXTRA_FROM_NOTIFICATION, true)
+                .putExtra(EXTRA_WATCH_INDEX, watchIndex(context, query))
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
-        PendingIntent tap = PendingIntent.getActivity(context, 0, open, flags);
+        PendingIntent tap = PendingIntent.getActivity(context, notificationId, open, flags);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.notification_icon)
-                .setContentTitle(context.getString(R.string.notification_title))
+                .setContentTitle(context.getString(R.string.notification_title_format, query.describeFilters()))
                 .setContentText(summary)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(details.toString()))
                 .setContentIntent(tap)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH);
 
-        NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, builder.build());
+        NotificationManagerCompat.from(context).notify(notificationId, builder.build());
+    }
+
+    private static int watchIndex(@NonNull Context context, @NonNull SearchQuery query) {
+        return new AppPreferences(context).getWatches().indexOf(query);
     }
 }

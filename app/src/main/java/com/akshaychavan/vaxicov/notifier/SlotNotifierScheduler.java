@@ -17,10 +17,11 @@ import com.akshaychavan.vaxicov.domain.SearchQuery;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Schedules {@link SlotCheckWorker} with WorkManager: an immediate run for
- * quick feedback plus a periodic run at the platform minimum of fifteen
- * minutes. WorkManager survives reboots and does not need the app to stay
- * in the foreground, unlike the old AlarmManager loop.
+ * Maintains the watchlist and the WorkManager job that checks it: one
+ * periodic {@link SlotCheckWorker} at the platform minimum of fifteen
+ * minutes (plus an immediate run whenever the list changes), cancelled when
+ * the last watch is removed. WorkManager survives reboots and does not need
+ * the app in the foreground.
  */
 public final class SlotNotifierScheduler {
 
@@ -30,33 +31,62 @@ public final class SlotNotifierScheduler {
     private SlotNotifierScheduler() {
     }
 
-    public static void schedule(@NonNull Context context, @NonNull SearchQuery query) {
-        new AppPreferences(context).saveNotifierQuery(query);
-
-        Constraints online = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build();
-        PeriodicWorkRequest periodic = new PeriodicWorkRequest.Builder(SlotCheckWorker.class,
-                PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS, TimeUnit.MILLISECONDS)
-                .setConstraints(online)
-                .build();
-        OneTimeWorkRequest immediate = new OneTimeWorkRequest.Builder(SlotCheckWorker.class)
-                .setConstraints(online)
-                .build();
-
-        WorkManager workManager = WorkManager.getInstance(context);
-        workManager.enqueueUniquePeriodicWork(PERIODIC_WORK, ExistingPeriodicWorkPolicy.REPLACE, periodic);
-        workManager.enqueueUniqueWork(IMMEDIATE_WORK, ExistingWorkPolicy.REPLACE, immediate);
+    /** Adds the query to the watchlist; returns {@code false} if it was already there or the list is full. */
+    public static boolean addWatch(@NonNull Context context, @NonNull SearchQuery query) {
+        boolean added = new AppPreferences(context).addWatch(query);
+        if (added) {
+            ensureScheduled(context);
+        }
+        return added;
     }
 
-    public static void cancel(@NonNull Context context) {
-        WorkManager workManager = WorkManager.getInstance(context);
-        workManager.cancelUniqueWork(PERIODIC_WORK);
-        workManager.cancelUniqueWork(IMMEDIATE_WORK);
-        new AppPreferences(context).clearNotifierQuery();
+    public static void removeWatch(@NonNull Context context, @NonNull SearchQuery query) {
+        AppPreferences preferences = new AppPreferences(context);
+        preferences.removeWatch(query);
+        if (preferences.hasWatches()) {
+            runNow(context);
+        } else {
+            cancelWork(context);
+        }
+    }
+
+    public static void clearWatches(@NonNull Context context) {
+        new AppPreferences(context).clearWatches();
+        cancelWork(context);
     }
 
     public static boolean isActive(@NonNull Context context) {
-        return new AppPreferences(context).getNotifierQuery() != null;
+        return new AppPreferences(context).hasWatches();
+    }
+
+    /** Makes sure the periodic job exists and triggers an immediate check. */
+    public static void ensureScheduled(@NonNull Context context) {
+        PeriodicWorkRequest periodic = new PeriodicWorkRequest.Builder(SlotCheckWorker.class,
+                PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS, TimeUnit.MILLISECONDS)
+                .setConstraints(online())
+                .build();
+        WorkManager.getInstance(context)
+                .enqueueUniquePeriodicWork(PERIODIC_WORK, ExistingPeriodicWorkPolicy.KEEP, periodic);
+        runNow(context);
+    }
+
+    private static void runNow(@NonNull Context context) {
+        OneTimeWorkRequest immediate = new OneTimeWorkRequest.Builder(SlotCheckWorker.class)
+                .setConstraints(online())
+                .build();
+        WorkManager.getInstance(context)
+                .enqueueUniqueWork(IMMEDIATE_WORK, ExistingWorkPolicy.REPLACE, immediate);
+    }
+
+    private static void cancelWork(@NonNull Context context) {
+        WorkManager workManager = WorkManager.getInstance(context);
+        workManager.cancelUniqueWork(PERIODIC_WORK);
+        workManager.cancelUniqueWork(IMMEDIATE_WORK);
+    }
+
+    private static Constraints online() {
+        return new Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build();
     }
 }

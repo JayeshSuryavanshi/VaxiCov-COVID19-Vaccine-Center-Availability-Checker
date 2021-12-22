@@ -1,9 +1,12 @@
 package com.akshaychavan.vaxicov;
 
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.content.res.ColorStateList;
+import android.net.Uri;
 import android.os.Bundle;
+import android.text.format.DateFormat;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -11,6 +14,7 @@ import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.RadioGroup;
@@ -23,7 +27,6 @@ import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -33,6 +36,7 @@ import com.akshaychavan.vaxicov.data.SlotRepository;
 import com.akshaychavan.vaxicov.domain.AgeGroup;
 import com.akshaychavan.vaxicov.domain.DoseType;
 import com.akshaychavan.vaxicov.domain.SearchQuery;
+import com.akshaychavan.vaxicov.domain.SlotFilter;
 import com.akshaychavan.vaxicov.notifier.AvailabilityNotifier;
 import com.akshaychavan.vaxicov.notifier.SlotNotifierScheduler;
 import com.akshaychavan.vaxicov.pojo.Center;
@@ -40,14 +44,15 @@ import com.akshaychavan.vaxicov.pojo.District;
 import com.akshaychavan.vaxicov.pojo.State;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 /**
- * The app's single screen: pick an area and age group, search for bookable
- * sessions, and optionally keep a background watch that notifies when new
- * slots open up.
+ * The app's single screen: pick an area, dose, vaccine and age group,
+ * search for bookable sessions, and keep a watchlist of areas that are
+ * checked in the background.
  */
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements CenterAdapter.Listener {
 
     private static final String TAG = "MainActivity";
     private static final String STATE_AGE_GROUP = "age_group";
@@ -66,7 +71,9 @@ public class MainActivity extends AppCompatActivity {
     private AutoCompleteTextView etDistrict;
     private Button btnSearch;
     private Button btnNotify;
-    private TextView tvStatus;
+    private View watchlistSection;
+    private LinearLayout watchRows;
+    private TextView tvSummary;
     private TextView tvEmpty;
     private ProgressBar progress;
     private RecyclerView rvCenters;
@@ -102,29 +109,39 @@ public class MainActivity extends AppCompatActivity {
             setAgeGroup(AgeGroup.ALL);
             setDose(DoseType.ANY);
             setVaccine(SearchQuery.ANY_VACCINE);
-            SearchQuery watched = preferences.getNotifierQuery();
-            if (watched != null) {
-                prefill(watched);
-                if (getIntent().getBooleanExtra(AvailabilityNotifier.EXTRA_FROM_NOTIFICATION, false)) {
-                    search();
+            if (!handleNotificationIntent(getIntent())) {
+                SearchQuery last = preferences.getLastSearch();
+                if (last != null) {
+                    prefill(last);
                 }
             }
         }
         loadStates();
-        renderNotifierStatus();
+        renderWatchlist();
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        if (intent.getBooleanExtra(AvailabilityNotifier.EXTRA_FROM_NOTIFICATION, false)) {
-            SearchQuery watched = preferences.getNotifierQuery();
-            if (watched != null) {
-                prefill(watched);
-                search();
-            }
+        handleNotificationIntent(intent);
+    }
+
+    /** Fills the form from the watch a notification was about and searches it. */
+    private boolean handleNotificationIntent(@Nullable Intent intent) {
+        if (intent == null || !intent.getBooleanExtra(AvailabilityNotifier.EXTRA_FROM_NOTIFICATION, false)) {
+            return false;
         }
+        List<SearchQuery> watches = preferences.getWatches();
+        int index = intent.getIntExtra(AvailabilityNotifier.EXTRA_WATCH_INDEX, -1);
+        SearchQuery query = index >= 0 && index < watches.size() ? watches.get(index)
+                : watches.isEmpty() ? null : watches.get(0);
+        if (query == null) {
+            return false;
+        }
+        prefill(query);
+        search();
+        return true;
     }
 
     @Override
@@ -173,7 +190,9 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         if (id == R.id.action_stop_alerts) {
-            stopAlerts();
+            SlotNotifierScheduler.clearWatches(this);
+            renderWatchlist();
+            Toast.makeText(this, R.string.toast_alerts_stopped, Toast.LENGTH_SHORT).show();
             return true;
         }
         if (id == R.id.action_about) {
@@ -195,12 +214,14 @@ public class MainActivity extends AppCompatActivity {
         etDistrict = findViewById(R.id.et_district);
         btnSearch = findViewById(R.id.btn_search);
         btnNotify = findViewById(R.id.btn_notify);
-        tvStatus = findViewById(R.id.tv_notifier_status);
+        watchlistSection = findViewById(R.id.ll_watchlist);
+        watchRows = findViewById(R.id.ll_watches);
+        tvSummary = findViewById(R.id.tv_summary);
         tvEmpty = findViewById(R.id.tv_empty);
         progress = findViewById(R.id.progressbar);
         rvCenters = findViewById(R.id.rv_centers);
 
-        adapter = new CenterAdapter();
+        adapter = new CenterAdapter(this);
         rvCenters.setLayoutManager(new LinearLayoutManager(this));
         rvCenters.setAdapter(adapter);
     }
@@ -231,13 +252,7 @@ public class MainActivity extends AppCompatActivity {
                 selectedDistrict = findDistrict(etDistrict.getText().toString()));
 
         btnSearch.setOnClickListener(v -> search());
-        btnNotify.setOnClickListener(v -> {
-            if (SlotNotifierScheduler.isActive(this)) {
-                stopAlerts();
-            } else {
-                confirmAlerts();
-            }
-        });
+        btnNotify.setOnClickListener(v -> confirmWatch());
     }
 
     private void createRepository() {
@@ -260,6 +275,16 @@ public class MainActivity extends AppCompatActivity {
                 states.clear();
                 states.addAll(result);
                 etState.setAdapter(new ArrayAdapter<>(MainActivity.this, R.layout.dropdown_item, names(result)));
+                // A prefilled district search only knows the state by name; resolve it now.
+                if (selectedState != null && selectedState.getStateId() == null && selectedState.getStateName() != null) {
+                    State resolved = findState(selectedState.getStateName());
+                    if (resolved != null) {
+                        selectedState = resolved;
+                        if (resolved.getStateId() != null) {
+                            loadDistricts(resolved.getStateId());
+                        }
+                    }
+                }
             }
 
             @Override
@@ -323,7 +348,7 @@ public class MainActivity extends AppCompatActivity {
         return names;
     }
 
-    // ---- Query & search ----------------------------------------------------
+    // ---- Filters -----------------------------------------------------------
 
     private void showAgeGroupMenu(View anchor) {
         PopupMenu menu = new PopupMenu(this, anchor);
@@ -370,6 +395,8 @@ public class MainActivity extends AppCompatActivity {
         etVaccine.setText(vaccine);
     }
 
+    // ---- Query & search ----------------------------------------------------
+
     /** Builds the query from the form, or returns {@code null} after telling the user what is missing. */
     @Nullable
     private SearchQuery buildQuery() {
@@ -404,12 +431,14 @@ public class MainActivity extends AppCompatActivity {
         if (query == null) {
             return;
         }
+        preferences.setLastSearch(query);
         setLoading(true);
         repository.search(query, new SlotRepository.Callback<List<Center>>() {
             @Override
             public void onSuccess(@NonNull List<Center> result) {
                 setLoading(false);
                 adapter.setCenters(result);
+                showSummary(result);
                 showEmpty(result.isEmpty() ? getString(R.string.no_slots, query.describeArea()) : null);
             }
 
@@ -418,6 +447,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.w(TAG, "Search failed for " + query, error);
                 setLoading(false);
                 adapter.clear();
+                tvSummary.setVisibility(View.GONE);
                 showEmpty(getString(R.string.error_network));
             }
         });
@@ -431,6 +461,19 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void showSummary(@NonNull List<Center> centers) {
+        if (centers.isEmpty()) {
+            tvSummary.setVisibility(View.GONE);
+            return;
+        }
+        int doses = SlotFilter.totalAvailable(centers);
+        String centersText = getResources().getQuantityString(R.plurals.summary_centers, centers.size(), centers.size());
+        String dosesText = getResources().getQuantityString(R.plurals.summary_doses, doses, doses);
+        String time = DateFormat.getTimeFormat(this).format(new Date());
+        tvSummary.setText(getString(R.string.summary_format, centersText, dosesText, time));
+        tvSummary.setVisibility(View.VISIBLE);
+    }
+
     private void showEmpty(@Nullable String message) {
         tvEmpty.setText(message);
         tvEmpty.setVisibility(message == null ? View.GONE : View.VISIBLE);
@@ -439,6 +482,7 @@ public class MainActivity extends AppCompatActivity {
     private void clearResults() {
         adapter.clear();
         showEmpty(null);
+        tvSummary.setVisibility(View.GONE);
         districts.clear();
         selectedState = null;
         selectedDistrict = null;
@@ -446,7 +490,7 @@ public class MainActivity extends AppCompatActivity {
         etDistrict.setText("");
     }
 
-    /** Puts a saved notifier query back into the form. */
+    /** Puts a saved query back into the form. */
     private void prefill(@NonNull SearchQuery query) {
         setAgeGroup(query.getAgeGroup());
         setDose(query.getDose());
@@ -456,7 +500,10 @@ public class MainActivity extends AppCompatActivity {
             etPin.setText(String.valueOf(query.getPincode()));
         } else {
             findBy.check(R.id.findbydistrict);
-            selectedState = new State(null, query.getStateName());
+            selectedState = findState(query.getStateName() == null ? "" : query.getStateName());
+            if (selectedState == null) {
+                selectedState = new State(null, query.getStateName());
+            }
             District district = new District();
             district.setDistrictId(query.getDistrictId());
             district.setDistrictName(query.getDistrictName());
@@ -466,42 +513,85 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ---- Background alerts -------------------------------------------------
+    // ---- Center actions ----------------------------------------------------
 
-    private void confirmAlerts() {
+    @Override
+    public void onOpenMap(@NonNull Center center) {
+        String where = center.getName() == null ? "" : center.getName();
+        if (center.getAddress() != null && !center.getAddress().trim().isEmpty()) {
+            where += ", " + center.getAddress().trim();
+        }
+        if (center.getPincode() != null) {
+            where += " " + center.getPincode();
+        }
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(where)));
+        startExternal(intent);
+    }
+
+    @Override
+    public void onShare(@NonNull Center center) {
+        Intent intent = new Intent(Intent.ACTION_SEND)
+                .setType("text/plain")
+                .putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_subject))
+                .putExtra(Intent.EXTRA_TEXT, CenterAdapter.shareText(center) + "\n\n" + getString(R.string.share_footer));
+        startExternal(Intent.createChooser(intent, getString(R.string.action_share)));
+    }
+
+    private void startExternal(@NonNull Intent intent) {
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, R.string.error_no_app, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // ---- Watchlist ---------------------------------------------------------
+
+    private void confirmWatch() {
         SearchQuery query = buildQuery();
         if (query == null) {
             return;
         }
+        if (preferences.getWatches().contains(query)) {
+            Toast.makeText(this, R.string.toast_watch_exists, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (preferences.getWatches().size() >= AppPreferences.MAX_WATCHES) {
+            Toast.makeText(this, getString(R.string.toast_watch_limit, AppPreferences.MAX_WATCHES), Toast.LENGTH_LONG).show();
+            return;
+        }
         new AlertDialog.Builder(this)
                 .setTitle(R.string.notifier_dialog_title)
-                .setMessage(getString(R.string.notifier_dialog_message, query.describeArea(), query.describeFilters()))
+                .setMessage(getString(R.string.notifier_dialog_message, query.describeArea(),
+                        query.describeFilters(), AppPreferences.MAX_WATCHES))
                 .setPositiveButton(R.string.notifier_dialog_start, (dialog, which) -> {
-                    SlotNotifierScheduler.schedule(this, query);
-                    renderNotifierStatus();
-                    Toast.makeText(this, R.string.toast_alerts_started, Toast.LENGTH_LONG).show();
+                    SlotNotifierScheduler.addWatch(this, query);
+                    renderWatchlist();
+                    Toast.makeText(this, getString(R.string.toast_alerts_started, query.describeArea()), Toast.LENGTH_LONG).show();
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
 
-    private void stopAlerts() {
-        SlotNotifierScheduler.cancel(this);
-        renderNotifierStatus();
-        Toast.makeText(this, R.string.toast_alerts_stopped, Toast.LENGTH_SHORT).show();
-    }
-
-    private void renderNotifierStatus() {
-        SearchQuery watched = preferences.getNotifierQuery();
-        if (watched != null) {
-            tvStatus.setText(getString(R.string.notifier_status_active, watched.describeArea(), watched.describeFilters()));
-            tvStatus.setVisibility(View.VISIBLE);
-            btnNotify.setText(R.string.action_stop_alerts);
-            btnNotify.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.colorRed)));
-        } else {
-            tvStatus.setVisibility(View.GONE);
-            btnNotify.setText(R.string.action_notify_me);
-            btnNotify.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.colorGreen)));
+    private void renderWatchlist() {
+        List<SearchQuery> watches = preferences.getWatches();
+        watchRows.removeAllViews();
+        watchlistSection.setVisibility(watches.isEmpty() ? View.GONE : View.VISIBLE);
+        LayoutInflater inflater = LayoutInflater.from(this);
+        for (SearchQuery watch : watches) {
+            View row = inflater.inflate(R.layout.item_watch, watchRows, false);
+            TextView label = row.findViewById(R.id.tv_watch);
+            label.setText(getString(R.string.watch_format, watch.describeArea(), watch.describeFilters()));
+            label.setOnClickListener(v -> {
+                prefill(watch);
+                search();
+            });
+            row.findViewById(R.id.btn_remove_watch).setOnClickListener(v -> {
+                SlotNotifierScheduler.removeWatch(this, watch);
+                renderWatchlist();
+                Toast.makeText(this, getString(R.string.toast_watch_removed, watch.describeArea()), Toast.LENGTH_SHORT).show();
+            });
+            watchRows.addView(row);
         }
         invalidateOptionsMenu();
     }
