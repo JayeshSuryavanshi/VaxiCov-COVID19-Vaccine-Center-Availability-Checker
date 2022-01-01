@@ -3,13 +3,15 @@ package com.akshaychavan.vaxicov.domain;
 import androidx.annotation.Nullable;
 
 /**
- * Age groups exposed by the CoWIN API through {@code min_age_limit}.
+ * Age groups exposed by the CoWIN API through {@code min_age_limit}
+ * (15 for the 15-17 drive that opened on 3 January 2022, 18 and 45).
  * <p>
  * {@link #ALL} matches every session; the other groups match sessions whose
  * minimum age limit equals the group's floor.
  */
 public enum AgeGroup {
     ALL("All", -1),
+    TEENS_15_17("15-17", 15),
     ADULTS_18_44("18-44", 18),
     SENIORS_45_PLUS("45+", 45);
 

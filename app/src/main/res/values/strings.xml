@@ -29,6 +29,7 @@
 
     <!-- Age groups: labels must match AgeGroup.label() -->
     <string name="age_group_all">All</string>
+    <string name="age_group_15_17">15-17</string>
     <string name="age_group_18_44">18-44</string>
     <string name="age_group_45_plus">45+</string>
 
