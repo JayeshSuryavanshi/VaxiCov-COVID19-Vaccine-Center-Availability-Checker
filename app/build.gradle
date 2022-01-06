@@ -19,6 +19,8 @@ android {
     buildToolsVersion "30.0.3"
 
     defaultConfig {
+        // The Play Store identity of the 1.0 release; must never change.
+        // Source code lives under the neutral com.vaxicov namespace instead.
         applicationId "com.akshaychavan.vaxicov"
         minSdkVersion 21
         targetSdkVersion 30
