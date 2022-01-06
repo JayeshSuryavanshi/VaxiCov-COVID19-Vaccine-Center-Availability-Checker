@@ -7,7 +7,7 @@ new slots open up. It was built in May 2021, at the height of India's second
 COVID-19 wave, when slots on the CoWIN portal were gone within minutes of
 being published.
 
-**Download:** [Google Play](https://play.google.com/store/apps/details?id=com.akshaychavan.vaxicov)
+**Download:** [Google Play](https://play.google.com/store/apps/details?id=com.vaxicov)
 
 <p>
   <img src="Screenshots/1_first_dose_pincode.png" width="190" alt="Search by pincode, first dose" />
@@ -50,7 +50,7 @@ permission and nothing else.
 
 The registry an app like this talks to is different for every country and
 every outbreak. VaxiCov therefore depends on one small interface,
-[`SlotProvider`](app/src/main/java/com/akshaychavan/vaxicov/data/SlotProvider.java),
+[`SlotProvider`](app/src/main/java/com/vaxicov/data/SlotProvider.java),
 and everything else (search, filters, the watchlist, the UI) is written
 against it:
 
@@ -76,7 +76,7 @@ the whole app usable with no backend: for demos, for UI work, and as the
 scaffold for wiring up a new registry before its API is final. To support a
 different registry, implement `SlotProvider`, map its payload onto the
 `Center`/`Session` models, and return it from
-[`SlotProviders`](app/src/main/java/com/akshaychavan/vaxicov/data/SlotProviders.java).
+[`SlotProviders`](app/src/main/java/com/vaxicov/data/SlotProviders.java).
 Nothing else needs to change. Filters that are specific to a campaign, such
 as age groups and dose types, are enums in the domain package and are the
 only other place to touch.
@@ -84,7 +84,7 @@ only other place to touch.
 ## Architecture
 
 ```
-com.akshaychavan.vaxicov
+com.vaxicov
 ├── MainActivity            single screen: form, watchlist, results
 ├── AppPreferences          typed SharedPreferences (watchlist, last search, data source)
 ├── domain/                 pure Java, unit tested
@@ -163,7 +163,16 @@ data (Nashik and Pune centers, January 2022 dates) so each one shows a
 complete use case. The original 1.0 captures from Google Play are kept in
 [`Screenshots/v1.0`](Screenshots/v1.0).
 
-## Credits
+## Contributors
 
-Built by Akshay Chavan and Jayesh Suryavanshi for family, friends and
-neighbours who were refreshing CoWIN by hand in May 2021.
+VaxiCov is a two-person project built for family, friends and neighbours
+who were refreshing CoWIN by hand in May 2021.
+
+| | |
+| --- | --- |
+| **Jayesh Suryavanshi** | 1.1 rebuild (Dec 2021 – Jan 2022): single-screen redesign, `SlotProvider` abstraction with the CoWIN and sample-data sources, dose/vaccine filters, watchlist and WorkManager alerts, share and map actions, unit-tested domain layer, build modernisation, this README. Play Store release management. |
+| **Akshay Chavan** | Original 1.0 app (May 2021): CoWIN integration, first search screen and notifier, Google sign-in and e-mail alerts, Play Store listing. |
+
+The Play Store `applicationId` keeps its original value so existing installs
+continue to update; the source code lives under the neutral `com.vaxicov`
+namespace.
