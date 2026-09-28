@@ -13,8 +13,23 @@
     <string name="action_notify_me">Notify me</string>
     <string name="action_stop_alerts">Stop alerts</string>
 
+    <string name="hint_dose">Dose</string>
+    <string name="hint_vaccine">Vaccine</string>
+
+    <!-- Dose types: labels must match DoseType.label() -->
+    <string name="dose_any">Any</string>
+    <string name="dose_first">Dose 1</string>
+    <string name="dose_second">Dose 2</string>
+
+    <!-- Vaccine filter: "Any" must match SearchQuery.ANY_VACCINE -->
+    <string name="vaccine_any">Any</string>
+    <string name="vaccine_covishield">COVISHIELD</string>
+    <string name="vaccine_covaxin">COVAXIN</string>
+    <string name="vaccine_sputnik">SPUTNIK V</string>
+
     <!-- Age groups: labels must match AgeGroup.label() -->
     <string name="age_group_all">All</string>
+    <string name="age_group_15_17">15-17</string>
     <string name="age_group_18_44">18-44</string>
     <string name="age_group_45_plus">45+</string>
 
@@ -27,20 +42,41 @@
     <string name="error_state">Pick a state from the list.</string>
     <string name="error_district">Pick a district from the list.</string>
 
+    <!-- Results -->
+    <plurals name="summary_centers">
+        <item quantity="one">%1$d center</item>
+        <item quantity="other">%1$d centers</item>
+    </plurals>
+    <plurals name="summary_doses">
+        <item quantity="one">%1$d dose</item>
+        <item quantity="other">%1$d doses</item>
+    </plurals>
+    <string name="summary_format">%1$s · %2$s · next 7 days · updated %3$s</string>
+    <string name="action_map">Map</string>
+    <string name="action_share">Share</string>
+    <string name="share_subject">Vaccination slots</string>
+    <string name="share_footer">Found with VaxiCov</string>
+    <string name="error_no_app">No app on this phone can open that.</string>
+
     <!-- Background alerts -->
-    <string name="notifier_status_active">Watching %1$s (%2$s) every 15 minutes</string>
+    <string name="watchlist_title">Watching every 15 minutes</string>
+    <string name="watch_format">%1$s · %2$s</string>
+    <string name="action_remove_watch">Stop watching</string>
+    <string name="toast_watch_exists">You are already watching that.</string>
+    <string name="toast_watch_limit">You can watch up to %1$d areas. Remove one first.</string>
+    <string name="toast_watch_removed">Stopped watching %1$s.</string>
     <string name="notifier_dialog_title">Alert me about new slots?</string>
-    <string name="notifier_dialog_message">VaxiCov will check %1$s (age group %2$s) roughly every 15 minutes, even when the app is closed, and notify you when bookable slots appear.\n\nOnly one area is watched at a time; starting a new watch replaces the previous one.</string>
+    <string name="notifier_dialog_message">VaxiCov will check %1$s (%2$s) roughly every 15 minutes, even when the app is closed, and notify you when bookable slots appear.\n\nYou can watch up to %3$d areas at once.</string>
     <string name="notifier_dialog_start">Start</string>
-    <string name="toast_alerts_started">Alerts started. You can close the app.</string>
-    <string name="toast_alerts_stopped">Alerts stopped.</string>
+    <string name="toast_alerts_started">Watching %1$s. You can close the app.</string>
+    <string name="toast_alerts_stopped">All alerts stopped.</string>
     <string name="toast_sample_data_on">Using bundled sample data.</string>
     <string name="toast_sample_data_off">Using the live registry.</string>
 
     <!-- Notifications -->
     <string name="notification_channel_name">Slot alerts</string>
     <string name="notification_channel_description">Alerts when vaccination slots become bookable in the area you are watching.</string>
-    <string name="notification_title">Vaccination slots available</string>
+    <string name="notification_title_format">Slots available · %1$s</string>
     <plurals name="notification_text">
         <item quantity="one">%1$d dose at %2$d center(s) for %3$s</item>
         <item quantity="other">%1$d doses at %2$d center(s) for %3$s</item>
@@ -49,7 +85,7 @@
 
     <!-- Menu -->
     <string name="menu_sample_data">Use sample data</string>
-    <string name="menu_stop_alerts">Stop alerts</string>
+    <string name="menu_stop_alerts">Stop all alerts</string>
     <string name="menu_about">About</string>
     <string name="about_message">VaxiCov %1$s\n\nFinds bookable vaccination slots by pincode or district and alerts you in the background when new ones open up.\n\nThe data source is pluggable: the bundled sample data lets the app run without any backend, and a new registry can be added by implementing one SlotProvider.\n\nBuilt by Akshay Chavan and Jayesh Suryavanshi.</string>
 </resources>

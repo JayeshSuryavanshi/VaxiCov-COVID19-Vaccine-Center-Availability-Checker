@@ -141,11 +141,15 @@ public final class SampleSlotProvider implements SlotProvider {
                 session.setSessionId(String.format(Locale.US, "sample-%d-%d-%d", areaKey, c, day));
                 session.setDate(DateFormats.cowinDate(DateFormats.plusDays(start, day)));
                 session.setVaccine(VACCINES[Math.abs(h >> 3) % VACCINES.length]);
-                session.setMinAgeLimit(Math.abs(h >> 5) % 2 == 0 ? 18 : 45);
+                int ageBucket = Math.abs(h >> 5) % 5;
+                session.setMinAgeLimit(ageBucket == 0 ? 15 : ageBucket < 3 ? 18 : 45);
                 session.setFee(paid ? "780" : "0");
                 // Roughly 40% of sessions are fully booked, like a real busy day.
                 int capacity = Math.abs(h) % 10 < 4 ? 0 : 1 + Math.abs(h >> 8) % 120;
+                int dose1 = capacity * (Math.abs(h >> 13) % 101) / 100;
                 session.setAvailableCapacity(capacity);
+                session.setAvailableCapacityDose1(dose1);
+                session.setAvailableCapacityDose2(capacity - dose1);
                 session.setSlots(Collections.singletonList("09:00AM-05:00PM"));
                 sessions.add(session);
             }

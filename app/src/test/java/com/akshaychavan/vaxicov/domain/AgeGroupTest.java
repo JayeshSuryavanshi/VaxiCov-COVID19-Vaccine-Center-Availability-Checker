@@ -23,6 +23,10 @@ public class AgeGroupTest {
 
         assertTrue(AgeGroup.SENIORS_45_PLUS.matches(45));
         assertFalse(AgeGroup.SENIORS_45_PLUS.matches(18));
+
+        assertTrue(AgeGroup.TEENS_15_17.matches(15));
+        assertFalse(AgeGroup.TEENS_15_17.matches(18));
+        assertFalse(AgeGroup.ADULTS_18_44.matches(15));
     }
 
     @Test

@@ -138,4 +138,60 @@ public class SlotFilterTest {
 
         assertEquals("7@01-12-2021@COVISHIELD", SlotFilter.signature(Collections.singletonList(c)));
     }
+
+    private static Session dosed(String id, int total, int dose1, int dose2, String vaccine) {
+        Session session = session(id, total, 18);
+        session.setAvailableCapacityDose1(dose1);
+        session.setAvailableCapacityDose2(dose2);
+        session.setVaccine(vaccine);
+        return session;
+    }
+
+    @Test
+    public void doseFilterUsesPerDoseCapacityAndRewritesTotals() {
+        Center c = center(1, "A",
+                dosed("only-first", 10, 10, 0, "COVISHIELD"),
+                dosed("mixed", 8, 3, 5, "COVISHIELD"));
+
+        List<Center> second = SlotFilter.availableCenters(Collections.singletonList(c), AgeGroup.ALL, DoseType.SECOND, null);
+
+        assertEquals(1, second.size());
+        assertEquals(1, second.get(0).getSessions().size());
+        assertEquals("mixed", second.get(0).getSessions().get(0).getSessionId());
+        assertEquals(5, (int) second.get(0).getSessions().get(0).getAvailableCapacity());
+        assertEquals(5, SlotFilter.totalAvailable(second));
+        // the original data is untouched
+        assertEquals(8, (int) c.getSessions().get(1).getAvailableCapacity());
+    }
+
+    @Test
+    public void vaccineFilterIsCaseInsensitiveAndTreatsAnyAsNoFilter() {
+        Center c = center(1, "A",
+                dosed("cs", 4, 4, 0, "COVISHIELD"),
+                dosed("cx", 6, 6, 0, "Covaxin"));
+
+        List<Center> covaxin = SlotFilter.availableCenters(Collections.singletonList(c), AgeGroup.ALL, DoseType.ANY, "covaxin");
+        List<Center> any = SlotFilter.availableCenters(Collections.singletonList(c), AgeGroup.ALL, DoseType.ANY, "Any");
+        List<Center> none = SlotFilter.availableCenters(Collections.singletonList(c), AgeGroup.ALL, DoseType.ANY, "SPUTNIK V");
+
+        assertEquals("cx", covaxin.get(0).getSessions().get(0).getSessionId());
+        assertEquals(2, any.get(0).getSessions().size());
+        assertTrue(none.isEmpty());
+    }
+
+    @Test
+    public void queryOverloadAppliesAllFilters() {
+        Center c = center(1, "A",
+                dosed("young-cs", 4, 2, 2, "COVISHIELD"),
+                dosed("young-cx", 6, 0, 6, "COVAXIN"),
+                session("old-cx", 9, 45));
+        c.getSessions().get(2).setVaccine("COVAXIN");
+        SearchQuery query = SearchQuery.byPin(422011, AgeGroup.ADULTS_18_44).withFilters(DoseType.SECOND, "COVAXIN");
+
+        List<Center> result = SlotFilter.availableCenters(Collections.singletonList(c), query);
+
+        assertEquals(1, result.get(0).getSessions().size());
+        assertEquals("young-cx", result.get(0).getSessions().get(0).getSessionId());
+        assertEquals(6, SlotFilter.totalAvailable(result));
+    }
 }

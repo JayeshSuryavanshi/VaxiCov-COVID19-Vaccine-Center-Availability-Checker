@@ -1,37 +1,58 @@
 # VaxiCov – vaccination slot finder and notifier
 
 VaxiCov is a small Android app that finds bookable vaccination slots by
-pincode or district and keeps watching in the background so you get a
-notification the moment new slots open up. It was built in May 2021, at the
-height of India's second COVID-19 wave, when slots on the CoWIN portal were
-gone within minutes of being published.
+pincode or district, filters them to the dose and vaccine you actually need,
+and keeps watching in the background so you get a notification the moment
+new slots open up. It was built in May 2021, at the height of India's second
+COVID-19 wave, when slots on the CoWIN portal were gone within minutes of
+being published.
 
 **Download:** [Google Play](https://play.google.com/store/apps/details?id=com.akshaychavan.vaxicov)
 
-## What it does
+<p>
+  <img src="Screenshots/1_first_dose_pincode.png" width="190" alt="Search by pincode, first dose" />
+  <img src="Screenshots/2_second_dose_district.png" width="190" alt="Second Covaxin dose for 45+ in Pune" />
+  <img src="Screenshots/3_watchlist_alert.png" width="190" alt="Watchlist with a slot alert" />
+  <img src="Screenshots/4_watch_dialog_sample_data.png" width="190" alt="Starting a watch on sample data" />
+</p>
 
-- **Search** the next seven days of sessions for a pincode or a
-  state/district, filtered to an age group (18-44, 45+ or all). Only
-  sessions with at least one available dose are shown, best-stocked centers
-  first.
-- **Notify me** starts a background watch on the same query. The app checks
-  roughly every 15 minutes, even when closed or after a reboot, and posts a
-  notification only when the set of bookable sessions changes, so you are
-  not pinged repeatedly about the same slots. Tapping the notification opens
-  the app with the search already run.
-- **Runs without a backend.** *Use sample data* in the overflow menu
-  switches to a bundled, deterministic data source, so the whole flow can be
-  demonstrated offline and the app stays usable for development when the
-  live registry is unavailable.
-- **No sign-in, no tracking.** The app needs the `INTERNET` permission and
-  nothing else.
+## Four things people use it for
+
+**1. A first dose near home.** Type your pincode, pick *Dose 1*, tap
+*Search*. You get every center within that pincode that has doses for the
+next seven days, best-stocked first, with the vaccine and minimum age on
+every line. Only sessions you can actually book are shown; fully booked
+sessions are dropped rather than listed with a zero.
+
+**2. A second dose that matches the first.** Second doses have to be the
+same vaccine, and centers often hold Covishield only. Set *Dose 2* and
+*COVAXIN* and the list, the dose counts and the alerts all describe Covaxin
+second doses only. Nothing else gets in the way.
+
+**3. Watching for the whole family.** Tap *Notify me* on any search to add
+it to the watchlist: your pincode for yourself, your parents' district with
+*45+*, your nephew's district with *15-17*. Up to five areas are checked
+roughly every 15 minutes, even with the app closed or after a reboot. A
+notification arrives only when the set of bookable sessions for that watch
+changes, so you are not pinged every quarter hour about the same slots.
+Tapping the notification opens the app with that search already run.
+
+**4. Passing a slot on.** Every center card has *Share*, which puts a
+plain-text summary (center, address, fee, dates, vaccines, doses) into
+WhatsApp or any other app, and *Map*, which opens the address in your maps
+app. That covers the "there are 40 doses at Bytco Hospital tomorrow" message
+that used to be typed out by hand.
+
+There is no sign-in and no tracking; the app needs the `INTERNET`
+permission and nothing else.
 
 ## Built for the next one too
 
 The registry an app like this talks to is different for every country and
 every outbreak. VaxiCov therefore depends on one small interface,
 [`SlotProvider`](app/src/main/java/com/akshaychavan/vaxicov/data/SlotProvider.java),
-and everything else (search, filtering, alerts, UI) is written against it:
+and everything else (search, filters, the watchlist, the UI) is written
+against it:
 
 ```java
 public interface SlotProvider {
@@ -50,21 +71,27 @@ Two implementations ship today:
 | `CowinSlotProvider` | India's public [CoWIN API](https://apisetu.gov.in/public/marketplace/api/cowin) via Retrofit |
 | `SampleSlotProvider` | Fabricated but realistic data that changes hourly; no network |
 
-To support a different registry, implement `SlotProvider`, map its payload
-onto the `Center`/`Session` models, and return it from
+*Use sample data* in the overflow menu switches to the second one. It makes
+the whole app usable with no backend: for demos, for UI work, and as the
+scaffold for wiring up a new registry before its API is final. To support a
+different registry, implement `SlotProvider`, map its payload onto the
+`Center`/`Session` models, and return it from
 [`SlotProviders`](app/src/main/java/com/akshaychavan/vaxicov/data/SlotProviders.java).
-Nothing else needs to change.
+Nothing else needs to change. Filters that are specific to a campaign, such
+as age groups and dose types, are enums in the domain package and are the
+only other place to touch.
 
 ## Architecture
 
 ```
 com.akshaychavan.vaxicov
-├── MainActivity            single screen: form, results list, alert toggle
-├── AppPreferences          typed SharedPreferences (watched query, data source)
+├── MainActivity            single screen: form, watchlist, results
+├── AppPreferences          typed SharedPreferences (watchlist, last search, data source)
 ├── domain/                 pure Java, unit tested
-│   ├── AgeGroup            eligibility floors (18-44, 45+, all)
-│   ├── SearchQuery         immutable pincode/district + age-group query
-│   ├── SlotFilter          keeps bookable sessions, sorts centers, change signature
+│   ├── AgeGroup            15-17, 18-44, 45+, all
+│   ├── DoseType            any / dose 1 / dose 2, per-dose capacity
+│   ├── SearchQuery         immutable area + filters, describeArea/describeFilters
+│   ├── SlotFilter          bookable-only filtering, ordering, change signature
 │   └── DateFormats         dd-MM-yyyy handling pinned to Locale.US
 ├── data/
 │   ├── SlotProvider        the extension point (see above)
@@ -74,10 +101,10 @@ com.akshaychavan.vaxicov
 │   └── SlotRepository      background executor + main-thread callbacks
 ├── network/                Retrofit service, OkHttp client, bundled state list
 ├── notifier/
-│   ├── SlotNotifierScheduler   WorkManager scheduling (immediate + periodic)
-│   ├── SlotCheckWorker         re-fetches the watched query, notifies on change
+│   ├── SlotNotifierScheduler   watchlist + WorkManager scheduling
+│   ├── SlotCheckWorker         checks every watch, notifies on change
 │   └── AvailabilityNotifier    notification channel and content
-├── adapters/CenterAdapter  RecyclerView cards
+├── adapters/CenterAdapter  center cards with Map and Share
 └── pojo/                   Gson models for the CoWIN payloads
 ```
 
@@ -85,8 +112,13 @@ Design notes:
 
 - The domain layer has no Android imports, which is what makes it testable
   with plain JUnit and reusable from both the Activity and the worker.
-- Background work uses WorkManager instead of `AlarmManager`. It respects
+- Filtering returns copies. When a dose is selected, the copies carry that
+  dose's capacity, so ordering, totals, the doses column and the change
+  signature all describe what the user can book. Parsed data is never
+  mutated.
+- Background work uses WorkManager rather than `AlarmManager`. It respects
   Doze, survives reboots, and the 15-minute period is the platform minimum.
+  One job checks the whole watchlist; each watch has its own notification.
 - Dates sent to the API are formatted with `Locale.US` so devices set to a
   locale with non-Latin digits still produce `dd-MM-yyyy`.
 - The registry base URL is a `BuildConfig` field read from
@@ -120,20 +152,16 @@ access.
 ### Tests
 
 `app/src/test` covers the domain layer and the sample provider: age-group
-matching, pincode validation, filtering and ordering, change signatures,
-date formatting and parsing, and the shape and determinism of sample data.
+and dose matching, pincode validation, filter combinations and ordering,
+change signatures, query equality and descriptions, date formatting and
+parsing, and the shape and determinism of sample data.
 
-## Screenshots
+## Screens
 
-From the 1.0 release on Google Play. The 1.1 UI keeps the look but drops
-the sign-in screen and the drawer.
-
-<p>
-  <img src="Screenshots/1.png" width="200" alt="Sign-in" />
-  <img src="Screenshots/2.png" width="200" alt="Search by pincode" />
-  <img src="Screenshots/3.png" width="200" alt="Results" />
-  <img src="Screenshots/4.png" width="200" alt="Notification settings" />
-</p>
+The images above are rendered from the app's layouts with representative
+data (Nashik and Pune centers, January 2022 dates) so each one shows a
+complete use case. The original 1.0 captures from Google Play are kept in
+[`Screenshots/v1.0`](Screenshots/v1.0).
 
 ## Credits
 

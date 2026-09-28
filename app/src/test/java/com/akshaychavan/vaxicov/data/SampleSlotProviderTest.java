@@ -100,6 +100,7 @@ public class SampleSlotProviderTest {
         }
         assertTrue(open > 0);
         assertTrue(booked > 0);
+        assertTrue(ages.contains(15));
         assertTrue(ages.contains(18));
         assertTrue(ages.contains(45));
         assertFalse(SlotFilter.availableCenters(centers, AgeGroup.ADULTS_18_44).isEmpty());

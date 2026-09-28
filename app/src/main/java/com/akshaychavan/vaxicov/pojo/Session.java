@@ -58,6 +58,12 @@ public class Session {
     @SerializedName("available_capacity")
     @Expose
     private Integer availableCapacity;
+    @SerializedName("available_capacity_dose1")
+    @Expose
+    private Integer availableCapacityDose1;
+    @SerializedName("available_capacity_dose2")
+    @Expose
+    private Integer availableCapacityDose2;
     @SerializedName("fee")
     @Expose
     private String fee;
@@ -70,6 +76,34 @@ public class Session {
     @SerializedName("slots")
     @Expose
     private List<String> slots = null;
+
+    public Session() {
+    }
+
+    /** Copy constructor that keeps every detail but replaces the available capacity. */
+    public Session(Session other, Integer availableCapacity) {
+        this.centerId = other.centerId;
+        this.name = other.name;
+        this.address = other.address;
+        this.stateName = other.stateName;
+        this.districtName = other.districtName;
+        this.blockName = other.blockName;
+        this.pincode = other.pincode;
+        this.from = other.from;
+        this.to = other.to;
+        this.lat = other.lat;
+        this._long = other._long;
+        this.feeType = other.feeType;
+        this.sessionId = other.sessionId;
+        this.date = other.date;
+        this.availableCapacity = availableCapacity;
+        this.availableCapacityDose1 = other.availableCapacityDose1;
+        this.availableCapacityDose2 = other.availableCapacityDose2;
+        this.fee = other.fee;
+        this.minAgeLimit = other.minAgeLimit;
+        this.vaccine = other.vaccine;
+        this.slots = other.slots;
+    }
 
     public Integer getCenterId() {
         return centerId;
@@ -189,6 +223,22 @@ public class Session {
 
     public void setAvailableCapacity(Integer availableCapacity) {
         this.availableCapacity = availableCapacity;
+    }
+
+    public Integer getAvailableCapacityDose1() {
+        return availableCapacityDose1;
+    }
+
+    public void setAvailableCapacityDose1(Integer availableCapacityDose1) {
+        this.availableCapacityDose1 = availableCapacityDose1;
+    }
+
+    public Integer getAvailableCapacityDose2() {
+        return availableCapacityDose2;
+    }
+
+    public void setAvailableCapacityDose2(Integer availableCapacityDose2) {
+        this.availableCapacityDose2 = availableCapacityDose2;
     }
 
     public String getFee() {

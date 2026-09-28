@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/dose_any" android:title="@string/dose_any" />
+    <item android:id="@+id/dose_first" android:title="@string/dose_first" />
+    <item android:id="@+id/dose_second" android:title="@string/dose_second" />
+</menu>

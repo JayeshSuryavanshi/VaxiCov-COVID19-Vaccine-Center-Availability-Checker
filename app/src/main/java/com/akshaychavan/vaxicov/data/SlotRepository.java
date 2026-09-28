@@ -83,7 +83,7 @@ public final class SlotRepository {
         List<Center> centers = query.isByPin()
                 ? provider.centersByPin(query.getPincode(), today)
                 : provider.centersByDistrict(query.getDistrictId(), today);
-        return SlotFilter.availableCenters(centers, query.getAgeGroup());
+        return SlotFilter.availableCenters(centers, query);
     }
 
     public void shutdown() {

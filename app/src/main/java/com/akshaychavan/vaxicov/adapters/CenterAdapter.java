@@ -7,6 +7,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.akshaychavan.vaxicov.R;
@@ -24,7 +25,19 @@ import java.util.Locale;
  */
 public class CenterAdapter extends RecyclerView.Adapter<CenterAdapter.CenterViewHolder> {
 
+    /** Actions a user can take on a center card. */
+    public interface Listener {
+        void onOpenMap(@NonNull Center center);
+
+        void onShare(@NonNull Center center);
+    }
+
     private final List<Center> centers = new ArrayList<>();
+    private final Listener listener;
+
+    public CenterAdapter(@NonNull Listener listener) {
+        this.listener = listener;
+    }
 
     public void setCenters(@NonNull List<Center> newCenters) {
         centers.clear();
@@ -41,12 +54,36 @@ public class CenterAdapter extends RecyclerView.Adapter<CenterAdapter.CenterView
     @Override
     public CenterViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_center, parent, false);
-        return new CenterViewHolder(view);
+        return new CenterViewHolder(view, listener);
     }
 
     @Override
     public void onBindViewHolder(@NonNull CenterViewHolder holder, int position) {
         holder.bind(centers.get(position));
+    }
+
+    /** Plain-text summary of a center's bookable sessions, for sharing. */
+    @NonNull
+    public static String shareText(@NonNull Center center) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(center.getName() == null ? "" : center.getName());
+        String address = CenterViewHolder.describeAddress(center);
+        if (!address.isEmpty()) {
+            sb.append('\n').append(address);
+        }
+        String fee = CenterViewHolder.describeFee(center);
+        if (!fee.isEmpty()) {
+            sb.append('\n').append(fee);
+        }
+        if (center.getSessions() != null) {
+            for (Session session : center.getSessions()) {
+                Integer capacity = session.getAvailableCapacity();
+                sb.append('\n').append(session.getDate()).append(": ")
+                        .append(CenterViewHolder.describeVaccine(session)).append(", ")
+                        .append(capacity == null ? 0 : capacity).append(" doses");
+            }
+        }
+        return sb.toString();
     }
 
     @Override
@@ -55,20 +92,31 @@ public class CenterAdapter extends RecyclerView.Adapter<CenterAdapter.CenterView
     }
 
     static class CenterViewHolder extends RecyclerView.ViewHolder {
+
         private final TextView name;
         private final TextView address;
         private final TextView fee;
         private final LinearLayout sessions;
+        private final Listener listener;
+        @Nullable private Center bound;
 
-        CenterViewHolder(@NonNull View itemView) {
+        CenterViewHolder(@NonNull View itemView, @NonNull Listener listener) {
             super(itemView);
+            this.listener = listener;
             name = itemView.findViewById(R.id.tv_center_name);
             address = itemView.findViewById(R.id.tv_center_address);
             fee = itemView.findViewById(R.id.tv_fee_type);
             sessions = itemView.findViewById(R.id.ll_sessions);
+            itemView.findViewById(R.id.btn_map).setOnClickListener(v -> {
+                if (bound != null) listener.onOpenMap(bound);
+            });
+            itemView.findViewById(R.id.btn_share).setOnClickListener(v -> {
+                if (bound != null) listener.onShare(bound);
+            });
         }
 
         void bind(@NonNull Center center) {
+            bound = center;
             name.setText(center.getName());
             address.setText(describeAddress(center));
             fee.setText(describeFee(center));
@@ -91,7 +139,7 @@ public class CenterAdapter extends RecyclerView.Adapter<CenterAdapter.CenterView
             }
         }
 
-        private static String describeAddress(Center center) {
+        static String describeAddress(Center center) {
             StringBuilder sb = new StringBuilder();
             if (center.getAddress() != null && !center.getAddress().trim().isEmpty()) {
                 sb.append(center.getAddress().trim());
@@ -105,7 +153,7 @@ public class CenterAdapter extends RecyclerView.Adapter<CenterAdapter.CenterView
             return sb.toString();
         }
 
-        private static String describeFee(Center center) {
+        static String describeFee(Center center) {
             String feeType = center.getFeeType() == null ? "" : center.getFeeType();
             if (!"Paid".equalsIgnoreCase(feeType) || center.getSessions() == null) {
                 return feeType;
@@ -119,7 +167,7 @@ public class CenterAdapter extends RecyclerView.Adapter<CenterAdapter.CenterView
             return feeType;
         }
 
-        private static String describeVaccine(Session session) {
+        static String describeVaccine(Session session) {
             String vaccine = session.getVaccine() == null ? "" : session.getVaccine();
             if (session.getMinAgeLimit() == null) {
                 return vaccine;
